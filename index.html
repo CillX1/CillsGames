@@ -1712,7 +1712,7 @@ function renderProfile(user, readOnly = false) {
                 <div class="profile-stat"><div class="profile-stat-val">${user.gamesPlayed||0}</div><div class="profile-stat-lbl">🎮 Spiele</div></div>
             </div>
         </div>
-        ${owned.length === 0 && !readOnly ? `<div style="color:#555;text-align:center;padding:20px">Keine Kosmetik-Items im Besitz. Besuche den <b>Shop</b>!</div>` : ''}
+        ${allOwnedItems.length === 0 && !readOnly ? `<div style="color:#555;text-align:center;padding:20px">Keine Kosmetik-Items im Besitz. Besuche den <b>Shop</b>!</div>` : ''}
         ${equipSection}
         <div class="profile-card">
             <div class="section-title">🏅 Bester Highscore</div>
