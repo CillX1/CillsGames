@@ -3889,7 +3889,7 @@ async function doAdminLogin() {
     } else {
         // Leiter: check if currentUser is in leiterList
         if (!currentUser) { document.getElementById('adminLoginErr').textContent = '❌ Bitte einloggen!'; return; }
-        const leiterList = JSON.parse(localStorage.getItem('cg_leiter') || '[]');
+        const leiterList = await getLeiterList();
         const leiterEntry = leiterList.find(l => l.name === currentUser.name);
         if (!leiterEntry) { document.getElementById('adminLoginErr').textContent = '❌ Du bist kein Leiter!'; return; }
         if (leiterEntry.pass !== pass) { document.getElementById('adminLoginErr').textContent = '❌ Falsches Passwort!'; return; }
@@ -3898,17 +3898,17 @@ async function doAdminLogin() {
     }
 }
 
-function addLeiterNotification(action) {
-    const notes = JSON.parse(localStorage.getItem('cg_leiter_notes') || '[]');
+async function addLeiterNotification(action) {
+    const notes = await getLeiterNotes();
     notes.unshift({ by: currentUser?.name || '?', action, time: new Date().toLocaleString('de-CH') });
     if (notes.length > 50) notes.pop();
-    localStorage.setItem('cg_leiter_notes', JSON.stringify(notes));
+    await setLeiterNotes(notes);
 }
  
 async function loadAdminPage() {
     const users = await getAllUsers();
     const entries = Object.values(users);
-    const leiterList = JSON.parse(localStorage.getItem('cg_leiter') || '[]');
+    const leiterList = await getLeiterList();
 
     // Users with Leiter button
     const userList = document.getElementById('adminUserList');
@@ -3993,7 +3993,7 @@ async function loadAdminPage() {
         </div>`;
 
     // Leiter notifications
-    const notes = JSON.parse(localStorage.getItem('cg_leiter_notes') || '[]');
+    const notes = await getLeiterNotes();
     let lnEl = document.getElementById('adminLeiterNotes');
     if (!lnEl) {
         lnEl = document.createElement('div');
@@ -4007,29 +4007,35 @@ async function loadAdminPage() {
     lnEl.innerHTML = `<div style="font-size:16px;font-weight:700;margin-bottom:12px;color:var(--purple)">👔 Leiter-Aktionen${notes.length?` <span style="background:var(--purple);color:#fff;border-radius:50%;padding:2px 7px;font-size:12px;margin-left:6px">${notes.length}</span>`:''}</div>${notesHtml}`;
 }
 
-function adminAddLeiter(name) {
+async function getLeiterList() {
+    try { const doc = await db.collection('config').doc('leiter').get(); return doc.exists ? (doc.data().list || []) : []; } catch(e) { return []; }
+}
+async function setLeiterList(list) {
+    try { await db.collection('config').doc('leiter').set({ list }); } catch(e) { console.error(e); }
+}
+async function getLeiterNotes() {
+    try { const doc = await db.collection('config').doc('leiter_notes').get(); return doc.exists ? (doc.data().notes || []) : []; } catch(e) { return []; }
+}
+async function setLeiterNotes(notes) {
+    try { await db.collection('config').doc('leiter_notes').set({ notes }); } catch(e) { console.error(e); }
+}
+
+async function adminAddLeiter(name) {
     const pass = prompt(`Passwort für Leiter "${name}" festlegen (min. 4 Zeichen):`);
     if (!pass || pass.length < 4) { alert('Passwort mindestens 4 Zeichen!'); return; }
-    const leiterList = JSON.parse(localStorage.getItem('cg_leiter') || '[]');
+    const leiterList = await getLeiterList();
     const idx = leiterList.findIndex(l => l.name === name);
     if (idx >= 0) leiterList[idx].pass = pass; else leiterList.push({ name, pass });
-    localStorage.setItem('cg_leiter', JSON.stringify(leiterList));
+    await setLeiterList(leiterList);
     alert(`✅ ${name} ist jetzt Leiter!\nPasswort: ${pass}`);
     loadAdminPage();
 }
 
-function adminRemoveLeiter(name) {
+async function adminRemoveLeiter(name) {
     if (!confirm(`Leiter "${name}" entfernen?`)) return;
-    const leiterList = JSON.parse(localStorage.getItem('cg_leiter') || '[]').filter(l => l.name !== name);
-    localStorage.setItem('cg_leiter', JSON.stringify(leiterList));
+    const leiterList = (await getLeiterList()).filter(l => l.name !== name);
+    await setLeiterList(leiterList);
     loadAdminPage();
-}
-
-function addLeiterNotification(action) {
-    const notes = JSON.parse(localStorage.getItem('cg_leiter_notes') || '[]');
-    notes.unshift({ by: currentUser?.name || '?', action, time: new Date().toLocaleString('de-CH') });
-    if (notes.length > 50) notes.pop();
-    localStorage.setItem('cg_leiter_notes', JSON.stringify(notes));
 }
 
 async function loadLeiterPage() {
