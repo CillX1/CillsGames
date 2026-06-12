@@ -3994,8 +3994,8 @@ async function loadAdminPage() {
     // Feedback from Firebase
     const fbEl = document.getElementById('adminFeedbackList');
     try {
-        const fbSnap = await db.collection('feedbacks').orderBy('ts','desc').limit(50).get();
-        const feedbacks = fbSnap.docs.map(d => d.data());
+        const fbSnap = await db.collection('feedbacks').limit(50).get();
+        const feedbacks = fbSnap.docs.map(d => d.data()).sort((a,b) => (b.ts||0) - (a.ts||0));
         if (feedbacks.length === 0) {
             fbEl.innerHTML = '<div style="color:#666;font-size:14px">Noch keine Bewertungen.</div>';
         } else {
