@@ -204,6 +204,16 @@ footer span{background:linear-gradient(45deg,var(--cyan),var(--purple));-webkit-
 .howto-box b { color:#fff; }
 .howto-key { display:inline-block; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:6px; padding:2px 9px; font-family:monospace; font-size:13px; color:#fff; margin:0 2px; }
  
+/* ── RARITY BADGES ── */
+.rarity-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;margin-bottom:6px;}
+.rarity-common{background:rgba(150,150,150,0.15);color:#aaa;}
+.rarity-rare{background:rgba(123,44,191,0.18);color:#a855f7;}
+.rarity-epic{background:rgba(255,140,0,0.18);color:#f97316;}
+.rarity-legendary{background:rgba(255,215,0,0.18);color:#eab308;}
+.shop-item.rare{border-color:rgba(123,44,191,0.4);}
+.shop-item.epic{border-color:rgba(255,140,0,0.45);}
+.shop-item.legendary{border-color:rgba(255,215,0,0.5);background:rgba(255,215,0,0.03);}
+
 /* ── SHOP WITH POINTS ── */
 .shop-tabs { display:flex; gap:0; border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,.1); margin-bottom:24px; }
 .shop-tab { flex:1; padding:10px; text-align:center; cursor:pointer; font-size:14px; font-weight:600; background:transparent; border:none; color:#888; transition:.2s; }
@@ -1135,25 +1145,28 @@ function showGameOver(score) {
     // Per-game normalization: average round = ~50 pts, max = 100
     // Formula: ptsEarned = clamp(floor(score / divisor), minPts, maxPts)
     const SCORING = {
-        dino:        { div: 20,   min: 5, max: 100 }, // score ~500-2000 → avg ~50
-        rocket:      { div: 15,   min: 5, max: 100 }, // score ~200-1500 → avg ~50
-        snake:       { div: 1,    min: 5, max: 100 }, // score ~20-150 → avg ~50
-        flappy:      { div: 0.3,  min: 5, max: 100 }, // score ~5-20 → avg ~50
-        pong:        { div: 4,    min: 5, max: 100 }, // score 0-250 (×50) → avg ~50
-        blockblast:  { div: 10,   min: 5, max: 100 }, // score ~200-800 → avg ~50
-        breakout:    { div: 11,   min: 5, max: 100 }, // score ~300-800 → avg ~50
-        asteroids:   { div: 6,    min: 5, max: 100 }, // score ~50-500 → avg ~50
-        tetris:      { div: 8,    min: 5, max: 100 }, // score ~0-800 → avg ~50
-        pacman:      { div: 50,   min: 5, max: 100 }, // score ~2500 → avg ~50
-        minesweeper: { div: 30,   min: 5, max: 100 }, // score ~200-2060 → avg ~50
-        tictactoe:   { div: 2,    min: 5, max: 100 }, // score ~100 → ~50
-        memory:      { div: 32,   min: 5, max: 100 }, // score ~1600 → ~50
-        connect4:    { div: 4,    min: 5, max: 100 }, // score ~200 → ~50
-        typing:      { div: 20,   min: 5, max: 100 }, // score ~800-1500 → avg ~50
-        quiz:        { div: 40,   min: 5, max: 100 }, // score ~1800-3000 → avg ~50
+        // Formel: pts = floor(score / div), min 5, kein hartes max
+        // Durchschnitt ~20-30 Pkt | Sehr gut ~80-100 Pkt | Aussergewöhnlich ~150 Pkt
+        // Divisoren bewusst hoch damit man nicht schnell farmen kann
+        dino:        { div: 40,  min: 5 }, // score ~800 → 20  | ~2500 → 62  | ~6000 → 150
+        rocket:      { div: 35,  min: 5 }, // score ~700 → 20  | ~2000 → 57  | ~5000 → 142
+        snake:       { div: 2,   min: 5 }, // score ~40 → 20   | ~120 → 60   | ~300 → 150
+        flappy:      { div: 0.6, min: 5 }, // score ~12 → 20   | ~40 → 66    | ~90 → 150
+        pong:        { div: 8,   min: 5 }, // score ~160 → 20  | ~500 → 62   | ~1200 → 150
+        blockblast:  { div: 20,  min: 5 }, // score ~400 → 20  | ~1200 → 60  | ~3000 → 150
+        breakout:    { div: 20,  min: 5 }, // score ~400 → 20  | ~1200 → 60  | ~3000 → 150
+        asteroids:   { div: 12,  min: 5 }, // score ~240 → 20  | ~800 → 66   | ~1800 → 150
+        tetris:      { div: 15,  min: 5 }, // score ~300 → 20  | ~1000 → 66  | ~2200 → 146
+        pacman:      { div: 100, min: 5 }, // score ~2000 → 20 | ~6000 → 60  | ~15000 → 150
+        minesweeper: { div: 50,  min: 5 }, // score ~1000 → 20 | ~3000 → 60  | ~7500 → 150
+        tictactoe:   { div: 5,   min: 5 }, // score ~100 → 20  | ~300 → 60   | ~750 → 150
+        memory:      { div: 60,  min: 5 }, // score ~1200 → 20 | ~3600 → 60  | ~9000 → 150
+        connect4:    { div: 8,   min: 5 }, // score ~160 → 20  | ~500 → 62   | ~1200 → 150
+        typing:      { div: 40,  min: 5 }, // score ~800 → 20  | ~2500 → 62  | ~6000 → 150
+        quiz:        { div: 80,  min: 5 }, // score ~1600 → 20 | ~5000 → 62  | ~12000 → 150
     };
     const s = SCORING[currentGame] || { div: 10, min: 1, max: 40 };
-    const ptsEarned = Math.min(s.max, Math.max(s.min, Math.floor(score / s.div)));
+    const ptsEarned = Math.max(s.min, Math.floor(score / s.div));
     let isNewRecord = false;
     if (currentUser) {
         if (!currentUser.highscores) currentUser.highscores = {};
@@ -1247,8 +1260,11 @@ function _renderLeaderboardEntries(entries) {
         const isNeon  = eq.color === 'color_neon' && inv.includes('color_neon');
         const isGold2 = eq.color === 'color_gold' && inv.includes('color_gold');
         const nameStyle = isNeon ? 'background:linear-gradient(90deg,#00d4ff,#ff006e,#00ff88);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;'
-                        : isGold2 ? 'background:linear-gradient(90deg,#ffd700,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;' : '';
-        const frameIcons = { frame_gold:'🖼️', frame_flame:'🔥', frame_ice:'❄️', frame_neon:'💡', frame_dark:'🌑', frame_side:'▌', frame_rainbow:'🌈', frame_hacker:'💻' };
+                        : isGold2 ? 'background:linear-gradient(90deg,#ffd700,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;'
+        : (eq.color === 'color_red' && inv.includes('color_red')) ? 'background:linear-gradient(90deg,#ff2222,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;'
+        : (eq.color === 'color_purple' && inv.includes('color_purple')) ? 'background:linear-gradient(90deg,#a855f7,#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;'
+        : '';
+        const frameIcons = { frame_gold:'🖼️', frame_flame:'🔥', frame_ice:'❄️', frame_neon:'💡', frame_dark:'🌑', frame_side:'▌', frame_rainbow:'🌈', frame_hacker:'💻', frame_thunder:'⚡', frame_galaxy:'🌌', frame_solar:'☀️', frame_diamond:'💎' };
         const frame = (eq.frame && inv.includes(eq.frame)) ? (frameIcons[eq.frame]||'') : '';
         const lbRowStyles = {
             frame_gold:    'background:linear-gradient(90deg,rgba(255,215,0,0.10),rgba(26,26,46,0.97));border-left:3px solid #ffd700;',
@@ -1259,6 +1275,10 @@ function _renderLeaderboardEntries(entries) {
             frame_dark:    'background:linear-gradient(90deg,rgba(60,60,80,0.35),rgba(26,26,46,0.97));border-left:3px solid rgba(150,150,180,0.4);',
             frame_side:    'border-left:4px solid #ff006e;box-shadow:inset 3px 0 10px rgba(255,0,110,0.2);',
             frame_hacker:  'background:#000;border:2px solid #00ff41;box-shadow:0 0 16px rgba(0,255,65,0.4),inset 0 0 30px rgba(0,255,65,0.04);position:relative;overflow:hidden;',
+            frame_thunder: 'background:linear-gradient(90deg,rgba(255,215,0,0.10),rgba(26,26,46,0.97));border-left:3px solid #ffd700;box-shadow:0 0 8px rgba(255,215,0,0.2);',
+            frame_galaxy:  'background:linear-gradient(90deg,rgba(168,85,247,0.12),rgba(26,26,46,0.97));border-left:3px solid #a855f7;box-shadow:0 0 8px rgba(168,85,247,0.25);',
+            frame_solar:   'background:linear-gradient(90deg,rgba(255,100,0,0.14),rgba(26,26,46,0.97));border-left:3px solid #ff6600;box-shadow:0 0 10px rgba(255,100,0,0.2);',
+            frame_diamond: 'background:linear-gradient(90deg,rgba(160,240,255,0.10),rgba(26,26,46,0.97));border-left:3px solid #a0f0ff;box-shadow:0 0 12px rgba(160,240,255,0.3);',
         };
         const lbNameColors = {
             frame_gold:    'background:linear-gradient(90deg,#ffd700,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;',
@@ -1269,6 +1289,10 @@ function _renderLeaderboardEntries(entries) {
             frame_dark:    'color:#ddd;',
             frame_side:    'color:#ff99cc;',
             frame_hacker:  'color:#00ff41;font-family:monospace;font-weight:700;text-shadow:0 0 10px #00ff41;letter-spacing:2px;position:relative;z-index:2;',
+            frame_thunder: 'background:linear-gradient(90deg,#ffd700,#fff176);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;',
+            frame_galaxy:  'background:linear-gradient(90deg,#a855f7,#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;',
+            frame_solar:   'background:linear-gradient(90deg,#ff6600,#ffcc00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;',
+            frame_diamond: 'background:linear-gradient(90deg,#a0f0ff,#ffffff,#a0f0ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;',
         };
         const activeFrame = (eq.frame && inv.includes(eq.frame)) ? eq.frame : null;
         const rowExtraStyle = activeFrame ? (lbRowStyles[activeFrame]||'') : '';
@@ -1397,7 +1421,7 @@ function bjHit(){_bjPlayer.push(bjDraw());const v=bjVal(_bjPlayer);bjRender('','
 function bjStand(){bjReveal();}
 function bjReveal(){
     _bjRunning=false;
-    while(bjVal(_bjDealer)<17)_bjDealer.push(bjDraw());
+    while(bjVal(_bjDealer)<19)_bjDealer.push(bjDraw());
     const p=bjVal(_bjPlayer),d=bjVal(_bjDealer);
     const dHtml=_bjDealer.map(c=>bjCard(c,false)).join('');
     let msg,cls;
@@ -1430,8 +1454,8 @@ function doRoulette(){
     const wheel=document.getElementById('rl_wheel');
     wheel.style.transition='transform 1s';wheel.style.transform='rotate(720deg)';
     setTimeout(()=>{wheel.style.transform='';
-        const num=Math.floor(Math.random()*37);
-        const isRed=RL_RED.includes(num),isGreen=num===0;
+        const num=Math.floor(Math.random()*25);
+        const isGreen=num<=1;const isRed=!isGreen&&num<=13;
         const sym=isGreen?'🟢':isRed?'🔴':'⚫';
         wheel.textContent=sym;
         const res=document.getElementById('rl_result');
@@ -1472,12 +1496,12 @@ function doSpin() {
     [0,1,2].forEach(i => document.getElementById('r'+i).classList.add('spinning'));
     let ticks = 0;
     const iv = setInterval(() => {
-        [0,1,2].forEach(i => { document.getElementById('r'+i).textContent = SLOT_SYMBOLS[Math.floor(Math.random()*SLOT_SYMBOLS.length)]; });
+        [0,1,2].forEach(i => { document.getElementById('r'+i).textContent = SLOT_SYMBOLS[Math.floor(Math.random()*6)]; });
         ticks++;
         if (ticks > 15) {
             clearInterval(iv);
             [0,1,2].forEach(i => document.getElementById('r'+i).classList.remove('spinning'));
-            const results = [0,1,2].map(i => { const s=SLOT_SYMBOLS[Math.floor(Math.random()*SLOT_SYMBOLS.length)]; document.getElementById('r'+i).textContent=s; return s; });
+            const results = [0,1,2].map(i => { const s=SLOT_SYMBOLS[Math.floor(Math.random()*6)]; document.getElementById('r'+i).textContent=s; return s; });
             const res = document.getElementById('slotResult');
             if (results[0]===results[1]&&results[1]===results[2]) {
                 const mult = SLOT_MULT[results[0]]||2;
@@ -1520,7 +1544,7 @@ function doCoin(choice) {
         flips++;
         if(flips>=maxFlips){
             clearInterval(interval);
-            const outcome=Math.random()<0.5?'heads':'tails';
+            const outcome=Math.random()<0.55?'heads':'tails';
             coin.textContent=outcome==='heads'?'👑':'🔢';
             if(outcome===choice){ currentUser.points=(currentUser.points||0)+coinBet*2; res.className='casino-result win'; res.textContent=`🎉 Richtig! +${coinBet*2} 🎯`; }
             else { res.className='casino-result lose'; res.textContent=`💸 Falsch! -${coinBet} 🎯`; }
@@ -1544,7 +1568,7 @@ function doDice(){
     if(!currentUser||(currentUser.points||0)<diceBet){document.getElementById('diceResult').textContent='Nicht genug Punkte!';return;}
     currentUser.points-=diceBet; saveUser(); updateHUD();
     const myRoll=Math.floor(Math.random()*6)+1;
-    const aiRoll=Math.floor(Math.random()*6)+1;
+    const aiRoll=Math.floor(Math.random()*5)+1;
     document.getElementById('myDice').textContent=DICE_FACES[myRoll-1];
     document.getElementById('aiDice').textContent=DICE_FACES[aiRoll-1];
     const res=document.getElementById('diceResult');
@@ -1573,15 +1597,27 @@ const SHOP_PROFIL = [
     { id:'title_ghost',   name:'Titel: Ghost',        icon:'👻', desc:'Unsichtbar aber tödlich',           price:600  },
     { id:'color_neon',    name:'Neon Farbe',          icon:'🌈', desc:'Neon-Profilfarbe',                  price:150  },
     { id:'color_gold',    name:'Gold Farbe',          icon:'✨', desc:'Goldener Profilname',               price:700  },
-    { id:'emote_fire',    name:'Feuer Badge',         icon:'🔥', desc:'Du bist auf Feuer!',               price:100  },
-    { id:'emote_gg',      name:'Titel: GG',            icon:'🤝', desc:'Good Game nach jedem Match',       price:80   },
-    { id:'emote_skull',   name:'Schädel Badge',        icon:'💀', desc:'No mercy!',                        price:120  },
     { id:'frame_gold',    name:'Gold Rahmen',         icon:'🖼️', desc:'Goldener Profilrahmen',             price:600  },
     { id:'frame_neon',    name:'Neon Rahmen',         icon:'💡', desc:'Leuchtender Neon-Rahmen',           price:900  },
     { id:'frame_dark',    name:'Dark Rahmen',         icon:'🌑', desc:'Dunkler edler Rahmen',              price:500  },
     { id:'frame_side',    name:'Side Rahmen',         icon:'▌',  desc:'Leuchtender Seitenstreifen',        price:400  },
     { id:'frame_rainbow', name:'Rainbow Rahmen',      icon:'🌈', desc:'Regenbogen-Rahmen',                 price:1200 },
-    { id:'frame_hacker',  name:'Hacker Rahmen',       icon:'💻', desc:'Matrix-Code Hintergrund',           price:1500 },
+    { id:'badge_thunder',  name:'Thunder Badge',       icon:'⚡', desc:'Blitz-schneller Spieler',           price:250,  rarity:'common'    },
+    { id:'badge_moon',     name:'Moon Badge',          icon:'🌙', desc:'Nachtaktiver Gamer',                price:300,  rarity:'common'    },
+    { id:'badge_dragon2',  name:'Dragon Badge',        icon:'🐉', desc:'Feuerspeiender Champion',           price:1500, rarity:'rare'      },
+    { id:'badge_galaxy',   name:'Galaxy Badge',        icon:'💫', desc:'Aus einer anderen Galaxie',         price:3000, rarity:'epic'      },
+    { id:'badge_godeye',   name:'God Eye Badge',       icon:'👁️', desc:'Sieht alles, weiss alles',         price:8000, rarity:'legendary' },
+    { id:'title_tryhard',  name:'Titel: Tryhard',      icon:'🎯', desc:'Gibt niemals auf',                  price:400,  rarity:'common'    },
+    { id:'title_afk',      name:'Titel: AFK',          icon:'😴', desc:'Immer irgendwie weg',               price:100,  rarity:'common'    },
+    { id:'title_bigbrain', name:'Titel: Big Brain',    icon:'🧠', desc:'Denkt 10 Züge voraus',              price:1200, rarity:'rare'      },
+    { id:'title_king',     name:'Titel: King',         icon:'👑', desc:'Herrscht über alle',                price:4000, rarity:'epic'      },
+    { id:'title_immortal', name:'Titel: Immortal',     icon:'🌌', desc:'Kann nicht besiegt werden',         price:10000,rarity:'legendary' },
+    { id:'color_red',      name:'Red Fire Farbe',      icon:'🔴', desc:'Roter Feuer-Profilname',            price:1000, rarity:'rare'      },
+    { id:'color_purple',   name:'Purple Farbe',        icon:'🟣', desc:'Violetter Profilname',              price:2500, rarity:'epic'      },
+    { id:'frame_thunder',  name:'Thunder Rahmen',      icon:'⚡', desc:'Gelber Blitz-Rahmen',              price:1500, rarity:'rare'      },
+    { id:'frame_galaxy',   name:'Galaxy Rahmen',       icon:'🌌', desc:'Lila Weltraum-Rahmen',              price:3500, rarity:'epic'      },
+    { id:'frame_solar',    name:'Solar Rahmen',        icon:'☀️', desc:'Brennender Sonnen-Rahmen',         price:7500, rarity:'legendary' },
+    { id:'frame_diamond',  name:'Diamond Rahmen',      icon:'💎', desc:'Ultra-seltener Diamant-Rahmen',    price:15000,rarity:'legendary' },
 ];
 let shopTab = 'profil';
 function switchShopTab(tab) { shopTab = tab; }
@@ -1593,43 +1629,44 @@ function switchShopTab(tab) { shopTab = tab; }
 const ITEM_SLOTS = {
     badge_gold:'badge', badge_diam:'badge', badge_fire:'badge',
     badge_skull:'badge', badge_alien:'badge', badge_robot:'badge',
+    badge_thunder:'badge', badge_moon:'badge', badge_dragon2:'badge', badge_galaxy:'badge', badge_godeye:'badge',
     title_pro:'title', title_legend:'title', title_noob:'title',
     title_goat:'title', title_grinder:'title', title_ghost:'title',
-    color_neon:'color', color_gold:'color',
-    emote_fire:'badge', emote_gg:'title', emote_skull:'badge',
-    frame_gold:'frame', frame_neon:'frame', frame_dark:'frame', frame_side:'frame', frame_rainbow:'frame', frame_hacker:'frame',
+    title_tryhard:'title', title_afk:'title', title_bigbrain:'title', title_king:'title', title_immortal:'title',
+    color_neon:'color', color_gold:'color', color_red:'color', color_purple:'color',
+    frame_gold:'frame', frame_neon:'frame', frame_dark:'frame', frame_side:'frame', frame_rainbow:'frame', frame_hacker:'frame', frame_thunder:'frame', frame_galaxy:'frame', frame_solar:'frame', frame_diamond:'frame',
     // Exklusiv – nur per Gutschein
     badge_crown:'badge', badge_ghost:'badge', badge_dragon:'badge',
     badge_sigma:'badge', badge_mystery:'badge', badge_admin:'badge',
     title_rainbow:'title', title_ninja:'title', title_starlord:'title',
-    title_admin:'title', title_leiter:'title',
+    title_admin:'title', title_leiter:'title', title_gambler:'title',
     frame_flame:'frame', frame_ice:'frame',
 };
 const ITEM_DISPLAY = {
     badge_gold:'🥇', badge_diam:'💎', badge_fire:'🔥',
     badge_skull:'💀', badge_alien:'👾', badge_robot:'🤖',
+    badge_thunder:'⚡', badge_moon:'🌙', badge_dragon2:'🐉', badge_galaxy:'💫', badge_godeye:'👁️',
     title_pro:'Pro Gamer', title_legend:'Legend', title_noob:'Noob',
     title_goat:'G.O.A.T', title_grinder:'Grinder', title_ghost:'Ghost',
-    color_neon:'neon', color_gold:'gold_color',
-    emote_fire:'🔥', emote_gg:'GG', emote_skull:'💀',
-    frame_gold:'gold', frame_neon:'neon', frame_dark:'dark', frame_side:'side', frame_rainbow:'rainbow', frame_hacker:'hacker',
+    title_tryhard:'Tryhard', title_afk:'AFK', title_bigbrain:'Big Brain', title_king:'King', title_immortal:'Immortal',
+    color_neon:'neon', color_gold:'gold_color', color_red:'red_color', color_purple:'purple_color',
+    frame_gold:'gold', frame_neon:'neon', frame_dark:'dark', frame_side:'side', frame_rainbow:'rainbow', frame_hacker:'hacker', frame_thunder:'thunder', frame_galaxy:'galaxy', frame_solar:'solar', frame_diamond:'diamond',
     // Exklusiv
     badge_crown:'👑', badge_ghost:'👻', badge_dragon:'🐉',
     badge_sigma:'⚡', badge_mystery:'🎭', badge_admin:'🛡️',
     title_rainbow:'Rainbow', title_ninja:'Ninja', title_starlord:'Star Lord',
-    title_admin:'Admin', title_leiter:'Leiter',
+    title_admin:'Admin', title_leiter:'Leiter', title_gambler:'Gambling Master',
     frame_flame:'flame', frame_ice:'ice',
 };
 const ITEM_NAMES = {
     badge_skull:'Skull', badge_alien:'Alien', badge_robot:'Robot',
     title_goat:'G.O.A.T Titel', title_grinder:'Grinder Titel', title_ghost:'Ghost Titel',
     color_gold:'Gold Farbe',
-    emote_skull:'Schädel',
-    frame_neon:'Neon Rahmen', frame_dark:'Dark Rahmen', frame_side:'Side Rahmen', frame_rainbow:'Rainbow Rahmen', frame_hacker:'Hacker Rahmen',
+    frame_neon:'Neon Rahmen', frame_dark:'Dark Rahmen', frame_side:'Side Rahmen', frame_rainbow:'Rainbow Rahmen', frame_hacker:'Hacker Rahmen', frame_thunder:'Thunder Rahmen', frame_galaxy:'Galaxy Rahmen', frame_solar:'Solar Rahmen', frame_diamond:'Diamond Rahmen',
     badge_crown:'VIP Krone', badge_ghost:'Ghost', badge_dragon:'Drache',
     badge_sigma:'Sigma', badge_mystery:'Mystery', badge_admin:'Admin',
     title_rainbow:'Rainbow Titel', title_ninja:'Ninja Titel', title_starlord:'Star Lord Titel',
-    title_admin:'Admin Titel', title_leiter:'Leiter Titel',
+    title_admin:'Admin Titel', title_leiter:'Leiter Titel', title_gambler:'Gambling Master Titel',
     frame_flame:'Flame Rahmen', frame_ice:'Ice Rahmen',
 };
 
@@ -1649,6 +1686,7 @@ const VOUCHER_CODES = {
     'CILLS-ADMIN-TTL': { item:'title_admin',   label:'🔐 Admin Titel' },
     'CILLS-LEITER-TTL':{ item:'title_leiter',  label:'👔 Leiter Titel' },
     'CILLS-HACKER-NEO':{ item:'frame_hacker',  label:'💻 Hacker Rahmen' },
+    'CILLS-GAMBLE-777':{ item:'title_gambler', label:'🎰 Gambling Master Titel' },
 };
 
 function redeemVoucher() {
@@ -1738,14 +1776,22 @@ function renderProfile(user, readOnly = false) {
         frame_side:    'border-left:5px solid #ff006e;padding-left:6px;border-radius:4px;display:inline-block;',
         frame_rainbow: 'border:3px solid transparent;background:linear-gradient(#1a1a2e,#1a1a2e) padding-box,linear-gradient(90deg,#ff006e,#ff8800,#ffd700,#00ff88,#00d4ff,#7b2cbf) border-box;border-radius:16px;display:inline-block;padding:4px;',
         frame_hacker:  'border:2px solid #00ff41;box-shadow:0 0 16px rgba(0,255,65,0.6);border-radius:16px;display:inline-block;padding:4px;background:#000;',
+        frame_thunder: 'border:3px solid #ffd700;box-shadow:0 0 16px #ffd700,0 0 30px rgba(255,200,0,0.3);border-radius:16px;display:inline-block;padding:4px;',
+        frame_galaxy:  'border:3px solid #a855f7;box-shadow:0 0 16px rgba(168,85,247,0.7);border-radius:16px;display:inline-block;padding:4px;background:rgba(20,0,40,0.5);',
+        frame_solar:   'border:3px solid #ff6600;box-shadow:0 0 20px #ff6600,0 0 40px rgba(255,100,0,0.3);border-radius:16px;display:inline-block;padding:4px;',
+        frame_diamond: 'border:3px solid #a0f0ff;box-shadow:0 0 20px #a0f0ff,0 0 40px rgba(160,240,255,0.4),0 0 60px rgba(255,255,255,0.2);border-radius:16px;display:inline-block;padding:4px;',
     };
     const frameStyle = (eq.frame && inv.includes(eq.frame)) ? (frameStyles[eq.frame]||'') : '';
-    const frameIcons = { frame_gold:'🖼️', frame_flame:'🔥', frame_ice:'❄️', frame_neon:'💡', frame_dark:'🌑', frame_side:'▌', frame_rainbow:'🌈', frame_hacker:'💻' };
+    const frameIcons = { frame_gold:'🖼️', frame_flame:'🔥', frame_ice:'❄️', frame_neon:'💡', frame_dark:'🌑', frame_side:'▌', frame_rainbow:'🌈', frame_hacker:'💻', frame_thunder:'⚡', frame_galaxy:'🌌', frame_solar:'☀️', frame_diamond:'💎' };
     const frameIcon  = (eq.frame && inv.includes(eq.frame)) ? (frameIcons[eq.frame]||'') : '';
     const nameColor = (eq.color === 'color_neon' && inv.includes('color_neon'))
         ? 'background:linear-gradient(90deg,#00d4ff,#ff006e,#00ff88);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;'
         : (eq.color === 'color_gold' && inv.includes('color_gold'))
         ? 'background:linear-gradient(90deg,#ffd700,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;'
+        : (eq.color === 'color_red' && inv.includes('color_red'))
+        ? 'background:linear-gradient(90deg,#ff2222,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;'
+        : (eq.color === 'color_purple' && inv.includes('color_purple'))
+        ? 'background:linear-gradient(90deg,#a855f7,#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;'
         : '';
 
     let equipSection = '';
@@ -1816,7 +1862,8 @@ function buildShop() {
             const canAfford = pts >= item.price;
             const slot      = ITEM_SLOTS[item.id];
             const isEquipped = slot && eq[slot] === item.id;
-            return `<div class="shop-item" style="${isEquipped?'border-color:var(--cyan);background:rgba(0,212,255,.06)':''}">
+            return `<div class="shop-item ${item.rarity||''}" style="${isEquipped?'border-color:var(--cyan);background:rgba(0,212,255,.06)':''}">
+                ${item.rarity&&item.rarity!=='common'?`<div class="rarity-badge rarity-${item.rarity}">${item.rarity==='rare'?'★ RARE':item.rarity==='epic'?'★★ EPIC':'★★★ LEGENDARY'}</div>`:''}
                 <div class="shop-item-icon">${item.icon}</div>
                 <div class="shop-item-name">${item.name}${isEquipped?' ✨':''}</div>
                 <div class="shop-item-desc">${item.desc}</div>
@@ -2088,13 +2135,13 @@ function initRocketGame() {
     let keys={};
     let shieldActive=false;
     let shieldTimer=0;
-    let spawnRate=0.02;
+    let spawnRate=0.035;
  
     for(let i=0;i<100;i++) stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,size:Math.random()*2+0.5,speed:Math.random()*2+1,brightness:Math.random()});
  
     function spawnAsteroid(){
         const size=20+Math.random()*40;
-        const speed = 3 + Math.random()*4 + score/400;
+        const speed = 5 + Math.random()*4 + score/400;
         const verts=[];
         const pts=8+Math.floor(Math.random()*5);
         for(let i=0;i<pts;i++){
@@ -2134,7 +2181,7 @@ function initRocketGame() {
         }
  
         // Increase spawn rate with score
-        spawnRate = Math.min(0.06, 0.02 + score/8000);
+        spawnRate = Math.min(0.09, 0.035 + score/5000);
         if(Math.random()<spawnRate) spawnAsteroid();
         if(Math.random()<0.001) spawnShield(); // seltener: 0.001 statt 0.004
  
@@ -2481,10 +2528,23 @@ function initPongGame() {
         if(keys['ArrowDown']||keys['KeyS']) player.y+=7;
         player.y=Math.max(0,Math.min(canvas.height-pH,player.y));
  
-        const aiSpeed = Math.min(9, 3.5 + (player.score+ai.score)*0.25);
-        const aiTarget=ball.y-pH/2;
-        if(ai.y<aiTarget-10) ai.y+=aiSpeed;
-        if(ai.y>aiTarget+10) ai.y-=aiSpeed;
+        const aiSpeed = Math.min(11, 5 + (player.score+ai.score)*0.3);
+        // Predict where ball will be when it reaches AI paddle
+        let predictY = ball.y;
+        if(ball.vx > 0) {
+            let simX=ball.x, simY=ball.y, simVY=ball.vy;
+            let steps=0;
+            while(simX < canvas.width-30 && steps<200){
+                simX+=ball.vx; simY+=simVY; steps++;
+                if(simY<=0||simY>=canvas.height-bS) simVY*=-1;
+            }
+            predictY = simY;
+        }
+        const aiTarget = predictY - pH/2;
+        // Small random error so AI isn't perfect
+        const error = (Math.random()-0.5)*18;
+        if(ai.y < aiTarget+error-8) ai.y+=aiSpeed;
+        if(ai.y > aiTarget+error+8) ai.y-=aiSpeed;
         ai.y=Math.max(0,Math.min(canvas.height-pH,ai.y));
  
         ball.x+=ball.vx; ball.y+=ball.vy;
@@ -3590,14 +3650,85 @@ function initConnect4Game() {
         return false;
     }
 
+    function scoreWindow(window, piece) {
+        const opp = piece===2?1:2;
+        let s=0;
+        const count=window.filter(v=>v===piece).length;
+        const empty=window.filter(v=>v===0).length;
+        if(count===4) s+=1000;
+        else if(count===3&&empty===1) s+=10;
+        else if(count===2&&empty===2) s+=2;
+        if(window.filter(v=>v===opp).length===3&&empty===1) s-=8;
+        return s;
+    }
+    function scoreBoard(b, piece) {
+        let score=0;
+        // Center column
+        const centerCol=b.map(r=>r[Math.floor(COLS/2)]);
+        score+=centerCol.filter(v=>v===piece).length*4;
+        // Horizontal
+        for(let r=0;r<ROWS;r++) for(let c=0;c<COLS-3;c++) score+=scoreWindow([b[r][c],b[r][c+1],b[r][c+2],b[r][c+3]],piece);
+        // Vertical
+        for(let c=0;c<COLS;c++) for(let r=0;r<ROWS-3;r++) score+=scoreWindow([b[r][c],b[r+1][c],b[r+2][c],b[r+3][c]],piece);
+        // Diagonal
+        for(let r=0;r<ROWS-3;r++) for(let c=0;c<COLS-3;c++) score+=scoreWindow([b[r][c],b[r+1][c+1],b[r+2][c+2],b[r+3][c+3]],piece);
+        for(let r=3;r<ROWS;r++) for(let c=0;c<COLS-3;c++) score+=scoreWindow([b[r][c],b[r-1][c+1],b[r-2][c+2],b[r-3][c+3]],piece);
+        return score;
+    }
+    function getValidCols() { return Array.from({length:COLS},(_,c)=>c).filter(c=>board[0][c]===0); }
+    function minimax(b, depth, alpha, beta, maximizing) {
+        const valid=getValidCols();
+        if(depth===0||valid.length===0) return {col:null, score:scoreBoard(b,2)-scoreBoard(b,1)};
+        // Check terminal
+        for(let c=0;c<COLS;c++){
+            const r=Array.from({length:ROWS},(_,i)=>i).find(i=>b[i][c]===0&&(i===ROWS-1||b[i+1][c]!==0));
+            if(r===undefined) continue;
+            b[r][c]=maximizing?2:1;
+            const win=checkWin(maximizing?2:1);
+            b[r][c]=0;
+            if(win) return {col:c, score:maximizing?100000:-100000};
+        }
+        if(maximizing) {
+            let best={col:valid[0],score:-Infinity};
+            for(const c of valid) {
+                const r=Array.from({length:ROWS},(_,i)=>i).find(i=>b[i][c]===0&&(i===ROWS-1||b[i+1][c]!==0));
+                if(r===undefined) continue;
+                b[r][c]=2;
+                const s=minimax(b,depth-1,alpha,beta,false).score;
+                b[r][c]=0;
+                if(s>best.score){best={col:c,score:s};}
+                alpha=Math.max(alpha,s);
+                if(alpha>=beta) break;
+            }
+            return best;
+        } else {
+            let best={col:valid[0],score:Infinity};
+            for(const c of valid) {
+                const r=Array.from({length:ROWS},(_,i)=>i).find(i=>b[i][c]===0&&(i===ROWS-1||b[i+1][c]!==0));
+                if(r===undefined) continue;
+                b[r][c]=1;
+                const s=minimax(b,depth-1,alpha,beta,true).score;
+                b[r][c]=0;
+                if(s<best.score){best={col:c,score:s};}
+                beta=Math.min(beta,s);
+                if(alpha>=beta) break;
+            }
+            return best;
+        }
+    }
     function aiMove() {
-        // Win
-        for(let c=0;c<COLS;c++) { const r=drop(c); if(r>=0) { if(checkWin(2)) return; board[r][c]=0; } }
-        // Block
-        for(let c=0;c<COLS;c++) { const r=drop(c); if(r>=0) { board[r][c]=1; if(checkWin(1)) { board[r][c]=2; return; } board[r][c]=0; } }
-        // Center preference
+        const valid=getValidCols();
+        if(!valid.length) return;
+        // Immediate win
+        for(const c of valid){const r=drop(c);if(r>=0){if(checkWin(2))return;board[r][c]=0;}}
+        // Block immediate loss
+        for(const c of valid){const r=drop(c);if(r>=0){board[r][c]=1;if(checkWin(1)){board[r][c]=2;return;}board[r][c]=0;}}
+        // Minimax depth 4
+        const result=minimax(board,4,-Infinity,Infinity,true);
+        if(result.col!==null){const r=drop(result.col);if(r>=0)return;}
+        // Fallback center
         const pref=[3,2,4,1,5,0,6];
-        for(const c of pref) { const r=drop(c); if(r>=0) return; }
+        for(const c of pref){const r=drop(c);if(r>=0)return;}
     }
 
     function draw() {
