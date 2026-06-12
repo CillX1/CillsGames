@@ -3849,22 +3849,28 @@ function openRatingModal() {
     document.querySelectorAll('input[name="cgRating"]').forEach(r => r.checked = false);
 }
  
-function submitRating() {
+async function submitRating() {
     const ratingEl = document.querySelector('input[name="cgRating"]:checked');
     const rating = ratingEl ? ratingEl.value : null;
     const text = document.getElementById('ratingText').value.trim() || 'Kein Kommentar';
     const msg = document.getElementById('ratingMsg');
     if (!rating) { msg.style.color = 'var(--red)'; msg.textContent = 'Bitte wähle eine Sternebewertung!'; return; }
- 
+
     const username = currentUser ? currentUser.name : 'Gast';
     const stars = '⭐'.repeat(parseInt(rating));
- 
-    // Save locally so you can review in admin panel
-    const feedbacks = JSON.parse(localStorage.getItem('cg_feedbacks') || '[]');
-    feedbacks.push({ user: username, rating, stars, text, date: new Date().toLocaleString('de-CH') });
-    localStorage.setItem('cg_feedbacks', JSON.stringify(feedbacks));
- 
-    // Also try webhook with no-cors (works when hosted on a server)
+    const entry = { user: username, rating, stars, text, date: new Date().toLocaleString('de-CH'), ts: Date.now() };
+
+    // Save to Firebase
+    try {
+        await db.collection('feedbacks').add(entry);
+    } catch(e) {
+        // Fallback localStorage
+        const feedbacks = JSON.parse(localStorage.getItem('cg_feedbacks') || '[]');
+        feedbacks.push(entry);
+        localStorage.setItem('cg_feedbacks', JSON.stringify(feedbacks));
+    }
+
+    // Discord webhook
     const payload = {
         embeds: [{
             title: '🎮 Neues CillsGames Feedback!',
@@ -3878,7 +3884,7 @@ function submitRating() {
         }]
     };
     fetch(DISCORD_WEBHOOK, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload), mode:'no-cors' }).catch(()=>{});
- 
+
     msg.style.color = 'var(--green)';
     msg.textContent = '✅ Feedback gespeichert!';
     setTimeout(() => closeModal('ratingModal'), 1500);
@@ -3985,22 +3991,25 @@ async function loadAdminPage() {
             </div>`;
         }).join('');
  
-    // Feedback
-    const feedbacks = JSON.parse(localStorage.getItem('cg_feedbacks') || '[]');
+    // Feedback from Firebase
     const fbEl = document.getElementById('adminFeedbackList');
-    if (feedbacks.length === 0) {
-        fbEl.innerHTML = '<div style="color:#666;font-size:14px">Noch keine Bewertungen.</div>';
-    } else {
-        fbEl.innerHTML = [...feedbacks].reverse().map(f => `
-            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px 18px;margin-bottom:10px">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
-                    <span style="font-weight:700">👤 ${f.user}</span>
-                    <span style="color:var(--gold)">${f.stars} (${f.rating}/5)</span>
-                    <span style="color:#555;font-size:12px">${f.date}</span>
-                </div>
-                <div style="color:#ccc;font-size:14px">${f.text}</div>
-            </div>`).join('');
-    }
+    try {
+        const fbSnap = await db.collection('feedbacks').orderBy('ts','desc').limit(50).get();
+        const feedbacks = fbSnap.docs.map(d => d.data());
+        if (feedbacks.length === 0) {
+            fbEl.innerHTML = '<div style="color:#666;font-size:14px">Noch keine Bewertungen.</div>';
+        } else {
+            fbEl.innerHTML = feedbacks.map(f => `
+                <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px 18px;margin-bottom:10px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+                        <span style="font-weight:700">👤 ${f.user}</span>
+                        <span style="color:var(--gold)">${f.stars} (${f.rating}/5)</span>
+                        <span style="color:#555;font-size:12px">${f.date}</span>
+                    </div>
+                    <div style="color:#ccc;font-size:14px">${f.text}</div>
+                </div>`).join('');
+        }
+    } catch(e) { fbEl.innerHTML = '<div style="color:#666;font-size:14px">Fehler beim Laden.</div>'; }
 
     // Voucher codes
     const vEl = document.getElementById('adminVoucherList');
@@ -4149,8 +4158,14 @@ async function leiterLockForUser(gameId) {
     } catch(e) { alert('Fehler: '+e.message); }
 }
 
-function adminClearFeedback() {
+async function adminClearFeedback() {
     if (!confirm('Alle Bewertungen löschen?')) return;
+    try {
+        const snap = await db.collection('feedbacks').get();
+        const batch = db.batch();
+        snap.docs.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+    } catch(e) { console.error(e); }
     localStorage.removeItem('cg_feedbacks');
     loadAdminPage();
 }
