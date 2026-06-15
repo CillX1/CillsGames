@@ -206,10 +206,11 @@ footer span{background:linear-gradient(45deg,var(--cyan),var(--purple));-webkit-
  
 /* ── RARITY BADGES ── */
 .rarity-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;margin-bottom:6px;}
-.rarity-common{background:rgba(150,150,150,0.15);color:#aaa;}
+.rarity-common{background:rgba(150,150,150,0.18);color:#bbb;}
 .rarity-rare{background:rgba(123,44,191,0.18);color:#a855f7;}
 .rarity-epic{background:rgba(255,140,0,0.18);color:#f97316;}
 .rarity-legendary{background:rgba(255,215,0,0.18);color:#eab308;}
+.shop-item.common{border-color:rgba(150,150,150,0.25);}
 .shop-item.rare{border-color:rgba(123,44,191,0.4);}
 .shop-item.epic{border-color:rgba(255,140,0,0.45);}
 .shop-item.legendary{border-color:rgba(255,215,0,0.5);background:rgba(255,215,0,0.03);}
@@ -965,10 +966,12 @@ const GAME_LIST = [
       howto:'<b>⌨️ Typing Rush</b><br><br>Tippe das angezeigte Wort vollständig ab.<br><br>⏱️ Du hast eine begrenzte Zeit pro Wort!<br>❤️ 3 Leben – ein Leben verloren wenn die Zeit abläuft.<br>⚡ Je schneller du tippst, desto mehr Punkte pro Wort.<br>💡 Die Zeit wird kürzer je mehr Punkte du hast.' },
     { id:'quiz',      name:'Quiz Master',   emoji:'❓', bg:'linear-gradient(135deg,#2a0a0a,#4a0a0a)',        desc:'Teste dein Wissen!', pts:2, unlock:250,
       howto:'<b>❓ Quiz Master</b><br><br><b>Klick</b> auf die richtige Antwort (A/B/C/D).<br><br>⏱️ 15 Sekunden pro Frage – je schneller, desto mehr Punkte!<br>🔥 Streak-Bonus: mehrere richtige Antworten in Folge = Extra-Punkte.<br>📚 15 zufällige Fragen aus Wissen, Natur, Mathe & mehr.<br>🏆 Alle 15 Fragen beantwortet = Finale Punkte!' },
+    { id:'business', name:'Business Empire', emoji:'🏢', bg:'linear-gradient(135deg,#0a2a0a,#1a4a1a)', desc:'Baue dein Imperium auf!', pts:2,
+      howto:'<b>🏢 Business Empire</b><br><br>Kaufe Geschäfte mit deinem Startkapital.<br><br>💰 Jedes Geschäft verdient automatisch Geld – auch wenn du nichts tust!<br>📈 Upgrade deine Geschäfte für mehr Einnahmen.<br>👔 Kaufe Manager um Geschäfte zu automatisieren.<br>🏦 Investiere in neue Geschäfte um dein Imperium zu erweitern.<br>🎯 Je mehr Geld du verdienst, desto mehr Spielpunkte!' },
 ];
  
 function isUnlocked(id) {
-    const alwaysFree = ['dino','rocket','snake','flappy','pong','blockblast','breakout','asteroids'];
+    const alwaysFree = ['dino','rocket','snake','flappy','pong','blockblast','breakout','asteroids','business'];
     if (alwaysFree.includes(id)) return true;
     if (!currentUser) return false;
     // Only check currentUser.unlocked – single source of truth
@@ -1055,9 +1058,10 @@ function showPage(name) {
     if (gameLoop) { cancelAnimationFrame(gameLoop); gameLoop = null; }
     document.onkeydown = null; document.onkeyup = null;
     // Clean up custom game containers
-    ['ms-container','mem-container','typ-container','quiz-container'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+    ['ms-container','mem-container','typ-container','quiz-container','biz-container'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
     // Stop typing timer if running
     if(window._typingTimer) { clearInterval(window._typingTimer); window._typingTimer=null; }
+    if(window._bizTimer) { clearInterval(window._bizTimer); window._bizTimer=null; }
     // Stop quiz timer if running
     if(window._quizTimer) { clearInterval(window._quizTimer); window._quizTimer=null; }
     if (canvas) canvas.style.display='block';
@@ -1132,6 +1136,7 @@ function startGame(id) {
         case 'connect4': initConnect4Game(); break;
         case 'typing': initTypingGame(); break;
         case 'quiz': initQuizGame(); break;
+        case 'business': initBusinessGame(); break;
     }
 }
  
@@ -1583,25 +1588,25 @@ function doDice(){
 // SHOP
 // ═══════════════════════════════════════════════════
 const SHOP_PROFIL = [
-    { id:'badge_gold',    name:'Gold Badge',         icon:'🥇', desc:'Zeig deinen Gold-Status!',         price:300  },
-    { id:'badge_diam',    name:'Diamant Badge',       icon:'💎', desc:'Ultra seltener Diamant-Status!',    price:1000 },
-    { id:'badge_fire',    name:'Fire Badge',          icon:'🔥', desc:'Du bist auf Feuer!',                price:200  },
-    { id:'badge_skull',   name:'Skull Badge',         icon:'💀', desc:'Für echte Hardcore-Spieler!',       price:400  },
-    { id:'badge_alien',   name:'Alien Badge',         icon:'👾', desc:'Out of this world!',                price:350  },
-    { id:'badge_robot',   name:'Robot Badge',         icon:'🤖', desc:'Maschine im Spiel!',               price:450  },
-    { id:'title_pro',     name:'Titel: Pro Gamer',    icon:'🎮', desc:'Exklusiver Pro-Titel',              price:500  },
-    { id:'title_legend',  name:'Titel: Legend',       icon:'👑', desc:'Der legendärste Titel',             price:2000 },
-    { id:'title_noob',    name:'Titel: Noob',         icon:'😅', desc:'Ironischer Anfänger-Titel',         price:50   },
-    { id:'title_goat',    name:'Titel: G.O.A.T',      icon:'🐐', desc:'Greatest of all time!',            price:1500 },
-    { id:'title_grinder', name:'Titel: Grinder',      icon:'⚙️', desc:'Du spielst non-stop!',             price:800  },
-    { id:'title_ghost',   name:'Titel: Ghost',        icon:'👻', desc:'Unsichtbar aber tödlich',           price:600  },
-    { id:'color_neon',    name:'Neon Farbe',          icon:'🌈', desc:'Neon-Profilfarbe',                  price:150  },
-    { id:'color_gold',    name:'Gold Farbe',          icon:'✨', desc:'Goldener Profilname',               price:700  },
-    { id:'frame_gold',    name:'Gold Rahmen',         icon:'🖼️', desc:'Goldener Profilrahmen',             price:600  },
-    { id:'frame_neon',    name:'Neon Rahmen',         icon:'💡', desc:'Leuchtender Neon-Rahmen',           price:900  },
-    { id:'frame_dark',    name:'Dark Rahmen',         icon:'🌑', desc:'Dunkler edler Rahmen',              price:500  },
-    { id:'frame_side',    name:'Side Rahmen',         icon:'▌',  desc:'Leuchtender Seitenstreifen',        price:400  },
-    { id:'frame_rainbow', name:'Rainbow Rahmen',      icon:'🌈', desc:'Regenbogen-Rahmen',                 price:1200 },
+    { id:'badge_gold',    name:'Gold Badge',         icon:'🥇', desc:'Zeig deinen Gold-Status!',         price:300,  rarity:'common'   },
+    { id:'badge_diam',    name:'Diamant Badge',       icon:'💎', desc:'Ultra seltener Diamant-Status!',    price:1000, rarity:'epic'     },
+    { id:'badge_fire',    name:'Fire Badge',          icon:'🔥', desc:'Du bist auf Feuer!',                price:200,  rarity:'common'   },
+    { id:'badge_skull',   name:'Skull Badge',         icon:'💀', desc:'Für echte Hardcore-Spieler!',       price:400,  rarity:'common'   },
+    { id:'badge_alien',   name:'Alien Badge',         icon:'👾', desc:'Out of this world!',                price:350,  rarity:'common'   },
+    { id:'badge_robot',   name:'Robot Badge',         icon:'🤖', desc:'Maschine im Spiel!',               price:450,  rarity:'common'   },
+    { id:'title_pro',     name:'Titel: Pro Gamer',    icon:'🎮', desc:'Exklusiver Pro-Titel',              price:500,  rarity:'common'   },
+    { id:'title_legend',  name:'Titel: Legend',       icon:'👑', desc:'Der legendärste Titel',             price:2000, rarity:'epic'     },
+    { id:'title_noob',    name:'Titel: Noob',         icon:'😅', desc:'Ironischer Anfänger-Titel',         price:50,   rarity:'common'   },
+    { id:'title_goat',    name:'Titel: G.O.A.T',      icon:'🐐', desc:'Greatest of all time!',            price:1500, rarity:'rare'     },
+    { id:'title_grinder', name:'Titel: Grinder',      icon:'⚙️', desc:'Du spielst non-stop!',             price:800,  rarity:'common'   },
+    { id:'title_ghost',   name:'Titel: Ghost',        icon:'👻', desc:'Unsichtbar aber tödlich',           price:600,  rarity:'common'   },
+    { id:'color_neon',    name:'Neon Farbe',          icon:'🌈', desc:'Neon-Profilfarbe',                  price:150,  rarity:'common'   },
+    { id:'color_gold',    name:'Gold Farbe',          icon:'✨', desc:'Goldener Profilname',               price:700,  rarity:'rare'     },
+    { id:'frame_gold',    name:'Gold Rahmen',         icon:'🖼️', desc:'Goldener Profilrahmen',             price:600,  rarity:'rare'     },
+    { id:'frame_neon',    name:'Neon Rahmen',         icon:'💡', desc:'Leuchtender Neon-Rahmen',           price:900,  rarity:'rare'     },
+    { id:'frame_dark',    name:'Dark Rahmen',         icon:'🌑', desc:'Dunkler edler Rahmen',              price:500,  rarity:'common'   },
+    { id:'frame_side',    name:'Side Rahmen',         icon:'▌',  desc:'Leuchtender Seitenstreifen',        price:400,  rarity:'common'   },
+    { id:'frame_rainbow', name:'Rainbow Rahmen',      icon:'🌈', desc:'Regenbogen-Rahmen',                 price:1200, rarity:'rare'     },
     { id:'badge_thunder',  name:'Thunder Badge',       icon:'⚡', desc:'Blitz-schneller Spieler',           price:250,  rarity:'common'    },
     { id:'badge_moon',     name:'Moon Badge',          icon:'🌙', desc:'Nachtaktiver Gamer',                price:300,  rarity:'common'    },
     { id:'badge_dragon2',  name:'Dragon Badge',        icon:'🐉', desc:'Feuerspeiender Champion',           price:1500, rarity:'rare'      },
@@ -1618,6 +1623,13 @@ const SHOP_PROFIL = [
     { id:'frame_galaxy',   name:'Galaxy Rahmen',       icon:'🌌', desc:'Lila Weltraum-Rahmen',              price:3500, rarity:'epic'      },
     { id:'frame_solar',    name:'Solar Rahmen',        icon:'☀️', desc:'Brennender Sonnen-Rahmen',         price:7500, rarity:'legendary' },
     { id:'frame_diamond',  name:'Diamond Rahmen',      icon:'💎', desc:'Ultra-seltener Diamant-Rahmen',    price:15000,rarity:'legendary' },
+    { id:'title_rainbow',  name:'Titel: Rainbow',      icon:'🌈', desc:'Bunt wie ein Regenbogen',           price:2500, rarity:'epic'      },
+    { id:'badge_dragon',   name:'Dragon Badge',        icon:'🐉', desc:'Feuerspeiender Drache',             price:1800, rarity:'rare'      },
+    { id:'title_ninja',    name:'Titel: Ninja',        icon:'🥷', desc:'Lautlos und tödlich',               price:1200, rarity:'rare'      },
+    { id:'title_starlord', name:'Titel: Star Lord',    icon:'🌟', desc:'Herrscher der Sterne',              price:3000, rarity:'epic'      },
+    { id:'frame_ice',      name:'Ice Rahmen',          icon:'❄️', desc:'Eiskalter Rahmen',                 price:1400, rarity:'rare'      },
+    { id:'badge_sigma',    name:'Sigma Badge',         icon:'⚡', desc:'Der Sigma Grindset',               price:900,  rarity:'rare'      },
+    { id:'badge_mystery',  name:'Mystery Badge',       icon:'🎭', desc:'Geheimnisvoll und selten',          price:1600, rarity:'rare'      },
 ];
 let shopTab = 'profil';
 function switchShopTab(tab) { shopTab = tab; }
@@ -1636,7 +1648,7 @@ const ITEM_SLOTS = {
     color_neon:'color', color_gold:'color', color_red:'color', color_purple:'color',
     frame_gold:'frame', frame_neon:'frame', frame_dark:'frame', frame_side:'frame', frame_rainbow:'frame', frame_hacker:'frame', frame_thunder:'frame', frame_galaxy:'frame', frame_solar:'frame', frame_diamond:'frame',
     // Exklusiv – nur per Gutschein
-    badge_crown:'badge', badge_ghost:'badge', badge_dragon:'badge',
+    badge_crown:'badge', badge_ghost:'badge', badge_dragon:'badge', badge_dragon2:'badge',
     badge_sigma:'badge', badge_mystery:'badge', badge_admin:'badge',
     title_rainbow:'title', title_ninja:'title', title_starlord:'title',
     title_admin:'title', title_leiter:'title', title_gambler:'title',
@@ -1863,7 +1875,7 @@ function buildShop() {
             const slot      = ITEM_SLOTS[item.id];
             const isEquipped = slot && eq[slot] === item.id;
             return `<div class="shop-item ${item.rarity||''}" style="${isEquipped?'border-color:var(--cyan);background:rgba(0,212,255,.06)':''}">
-                ${item.rarity&&item.rarity!=='common'?`<div class="rarity-badge rarity-${item.rarity}">${item.rarity==='rare'?'★ RARE':item.rarity==='epic'?'★★ EPIC':'★★★ LEGENDARY'}</div>`:''}
+                ${item.rarity?`<div class="rarity-badge rarity-${item.rarity}">${item.rarity==='common'?'◆ COMMON':item.rarity==='rare'?'★ RARE':item.rarity==='epic'?'★★ EPIC':'★★★ LEGENDARY'}</div>`:''}
                 <div class="shop-item-icon">${item.icon}</div>
                 <div class="shop-item-name">${item.name}${isEquipped?' ✨':''}</div>
                 <div class="shop-item-desc">${item.desc}</div>
@@ -4447,6 +4459,198 @@ async function pushLeaderboardForUser(u) {
             equipped:u.equipped||{}, inventory:u.inventory||[]
         });
     } catch(e) {}
+}
+
+
+// ==================== BUSINESS EMPIRE ====================
+function initBusinessGame() {
+    document.getElementById('currentGameTitle').textContent = '🏢 Business Empire';
+    document.getElementById('gameInstructions').innerHTML = '<p>Kaufe Geschäfte, verdiene Geld, baue dein Imperium!</p>';
+    document.getElementById('currentHighScore').textContent = getHighScore('business');
+    canvas.style.display = 'none';
+
+    const container = document.getElementById('gameContainer');
+    let bizDiv = document.getElementById('biz-container');
+    if (!bizDiv) {
+        bizDiv = document.createElement('div');
+        bizDiv.id = 'biz-container';
+        bizDiv.style.cssText = 'padding:20px;max-width:700px;margin:0 auto;width:100%;';
+        container.appendChild(bizDiv);
+    }
+    bizDiv.style.display = 'block';
+
+    const BUSINESSES = [
+        { id:'kiosk',      name:'Kiosk',          emoji:'🏪', baseCost:100,   baseIncome:0.88, upgradeMult:1.5, managerCost:500,    level:0, income:0, managed:false, owned:false },
+        { id:'cafe',       name:'Café',            emoji:'☕', baseCost:500,   baseIncome:2.63, upgradeMult:1.6, managerCost:2000,   level:0, income:0, managed:false, owned:false },
+        { id:'restaurant', name:'Restaurant',      emoji:'🍕', baseCost:2000,  baseIncome:8.75, upgradeMult:1.7, managerCost:8000,   level:0, income:0, managed:false, owned:false },
+        { id:'boutique',   name:'Boutique',        emoji:'👗', baseCost:8000,  baseIncome:31.5, upgradeMult:1.8, managerCost:30000,  level:0, income:0, managed:false, owned:false },
+        { id:'techshop',   name:'Tech Shop',       emoji:'💻', baseCost:30000, baseIncome:105,  upgradeMult:1.9, managerCost:100000, level:0, income:0, managed:false, owned:false },
+        { id:'factory',    name:'Fabrik',          emoji:'🏭', baseCost:100000,baseIncome:350,  upgradeMult:2.0, managerCost:350000, level:0, income:0, managed:false, owned:false },
+        { id:'bank',       name:'Bank',            emoji:'🏦', baseCost:500000,baseIncome:1400, upgradeMult:2.2, managerCost:1500000,level:0, income:0, managed:false, owned:false },
+    ];
+
+    let money = 50;
+    let totalEarned = 0;
+    let gameOver = false;
+    let lastTick = Date.now();
+
+    function getIncome(b) {
+        if (!b.owned || b.level === 0) return 0;
+        return b.baseIncome * Math.pow(b.upgradeMult, b.level - 1);
+    }
+
+    function getUpgradeCost(b) {
+        if (!b.owned) return b.baseCost;
+        return Math.floor(b.baseCost * Math.pow(1.8, b.level));
+    }
+
+    function formatMoney(n) {
+        if (n >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+        if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+        if (n >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';
+        return '$' + Math.floor(n);
+    }
+
+    function tick() {
+        if (gameOver || currentGame !== 'business') return;
+        const now = Date.now();
+        const dt = (now - lastTick) / 1000; // dt in seconds
+        lastTick = now;
+        let earned = 0;
+        BUSINESSES.forEach(b => {
+            if (b.owned && b.level > 0 && b.managed) {
+                const inc = getIncome(b) * (dt / 60); // income is per minute
+                money += inc;
+                earned += inc;
+            }
+        });
+        if (earned > 0) {
+            totalEarned += earned;
+            document.getElementById('currentScore').textContent = Math.floor(totalEarned);
+        }
+        render();
+        document.getElementById('biz-money').textContent = formatMoney(money);
+        document.getElementById('biz-earned').textContent = formatMoney(totalEarned);
+    }
+
+    function collectManual(id) {
+        const b = BUSINESSES.find(x => x.id === id);
+        if (!b || !b.owned || b.level === 0) return;
+        const inc = getIncome(b) * 0.5 / 60; // 0.5min worth
+        money += inc;
+        totalEarned += inc;
+        document.getElementById('currentScore').textContent = Math.floor(totalEarned);
+        render();
+    }
+
+    function buyOrUpgrade(id) {
+        const b = BUSINESSES.find(x => x.id === id);
+        if (!b) return;
+        const cost = getUpgradeCost(b);
+        if (money < cost) return;
+        money -= cost;
+        if (!b.owned) { b.owned = true; b.level = 1; }
+        else b.level++;
+        render();
+    }
+
+    function buyManager(id) {
+        const b = BUSINESSES.find(x => x.id === id);
+        if (!b || !b.owned || b.managed) return;
+        if (money < b.managerCost) return;
+        money -= b.managerCost;
+        b.managed = true;
+        render();
+    }
+
+    function endGame() {
+        gameOver = true;
+        showGameOver(Math.floor(totalEarned));
+    }
+
+    function render() {
+        const canAffordAny = BUSINESSES.some(b => money >= (b.owned ? getUpgradeCost(b) : b.baseCost));
+        bizDiv.innerHTML = '';
+
+        // Header stats
+        const hdr = document.createElement('div');
+        hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;';
+        hdr.innerHTML = `
+            <div style="display:flex;gap:16px;flex-wrap:wrap">
+                <div style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);border-radius:12px;padding:8px 16px;">
+                    <div style="font-size:11px;color:#aaa">💰 Kapital</div>
+                    <div id="biz-money" style="font-size:22px;font-weight:700;color:#00ff88">${formatMoney(money)}</div>
+                </div>
+                <div style="background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:12px;padding:8px 16px;">
+                    <div style="font-size:11px;color:#aaa">📈 Total verdient</div>
+                    <div id="biz-earned" style="font-size:22px;font-weight:700;color:#00d4ff">${formatMoney(totalEarned)}</div>
+                </div>
+            </div>
+            <button onclick="(${endGame.toString()})()" style="background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.3);color:#ff4444;padding:8px 18px;border-radius:10px;cursor:pointer;font-size:14px">⏹ Aufhören</button>
+        `;
+        bizDiv.appendChild(hdr);
+
+        // Passive income per sec
+        const totalPassive = BUSINESSES.reduce((sum, b) => sum + (b.owned && b.level > 0 && b.managed ? getIncome(b) : 0), 0);
+        if (totalPassive > 0) {
+            const passDiv = document.createElement('div');
+            passDiv.style.cssText = 'background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.2);border-radius:10px;padding:8px 14px;margin-bottom:14px;font-size:13px;color:#ffd700;';
+            passDiv.textContent = `⚡ Passiv: ${formatMoney(totalPassive)}/min`;
+            bizDiv.appendChild(passDiv);
+        }
+
+        // Business cards
+        BUSINESSES.forEach(b => {
+            const cost = getUpgradeCost(b);
+            const canAfford = money >= cost;
+            const canAffordManager = money >= b.managerCost;
+            const income = getIncome(b);
+
+            const card = document.createElement('div');
+            card.style.cssText = `background:rgba(255,255,255,${b.owned?'0.06':'0.02'});border:1px solid rgba(255,255,255,${b.owned?'0.15':'0.06'});border-radius:14px;padding:14px 16px;margin-bottom:10px;`;
+
+            card.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <div style="font-size:36px">${b.emoji}</div>
+                        <div>
+                            <div style="font-size:15px;font-weight:700;color:${b.owned?'#fff':'#666'}">${b.name} ${b.owned?`<span style="color:#ffd700;font-size:12px">Lv.${b.level}</span>`:''}</div>
+                            <div style="font-size:12px;color:#888;margin-top:2px">
+                                ${b.owned && b.level > 0 ? `💰 ${formatMoney(income)}/min ${b.managed?'<span style="color:#00ff88">✅ Manager</span>':'<span style="color:#888">❌ Kein Manager</span>'}` : '<span style="color:#555">Noch nicht gekauft</span>'}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                        ${b.owned && b.level > 0 && !b.managed ? `
+                            <button onclick="(${collectManual.toString()})('${b.id}')" style="background:rgba(0,212,255,0.15);border:1px solid rgba(0,212,255,0.4);color:#00d4ff;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;">
+                                👆 Kassieren (+${formatMoney(income*0.5)})
+                            </button>
+                        ` : ''}
+                        ${b.owned && !b.managed ? `
+                            <button onclick="(${buyManager.toString()})('${b.id}')" ${!canAffordManager?'disabled':''} style="background:rgba(123,44,191,${canAffordManager?'0.2':'0.05'});border:1px solid rgba(123,44,191,${canAffordManager?'0.5':'0.2'});color:${canAffordManager?'#a855f7':'#555'};padding:6px 12px;border-radius:8px;cursor:${canAffordManager?'pointer':'default'};font-size:12px;">
+                                👔 Manager (${formatMoney(b.managerCost)})
+                            </button>
+                        ` : ''}
+                        <button onclick="(${buyOrUpgrade.toString()})('${b.id}')" ${!canAfford?'disabled':''} style="background:rgba(0,255,136,${canAfford?'0.15':'0.05'});border:1px solid rgba(0,255,136,${canAfford?'0.4':'0.15'});color:${canAfford?'#00ff88':'#444'};padding:6px 14px;border-radius:8px;cursor:${canAfford?'pointer':'default'};font-size:13px;font-weight:700;">
+                            ${!b.owned ? `🏪 Kaufen (${formatMoney(cost)})` : `⬆️ Upgrade (${formatMoney(cost)})`}
+                        </button>
+                    </div>
+                </div>
+            `;
+            bizDiv.appendChild(card);
+        });
+
+        // Info box
+        const info = document.createElement('div');
+        info.style.cssText = 'background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 16px;margin-top:8px;font-size:12px;color:#666;line-height:1.8;';
+        info.innerHTML = '💡 Ohne Manager → klicke "Kassieren" um Geld zu verdienen<br>👔 Mit Manager → verdient automatisch auch wenn du nichts machst<br>📈 Mehr Upgrades = mehr Einnahmen pro Sekunde';
+        bizDiv.appendChild(info);
+    }
+
+    render();
+    if (window._bizTimer) clearInterval(window._bizTimer);
+    window._bizTimer = setInterval(tick, 100);
+    if (gameLoop) { cancelAnimationFrame(gameLoop); gameLoop = null; }
 }
 
 // ── BOOT ──
