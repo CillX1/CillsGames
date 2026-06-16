@@ -794,7 +794,11 @@ async function saveUser() {
             points: currentUser.points||0,
             equipped: currentUser.equipped||{},
             inventory: currentUser.inventory||[],
-        });
+        }); // no merge so leaderboard stays in sync with users
+        // If leaderboard page is currently open, refresh it live
+        if (document.getElementById('leaderboardPage')?.classList.contains('active')) {
+            loadLeaderboard();
+        }
     } catch(e) { console.error('saveUser:', e); }
 }
 
@@ -1362,10 +1366,17 @@ async function loadLeaderboard() {
     const el = document.getElementById('lbContent');
     el.innerHTML = '<div style="text-align:center;padding:40px;color:#888">⏳ Lade Rangliste…</div>';
     try {
-        const snap = await db.collection('leaderboard').orderBy('stars','desc').limit(50).get();
+        // { source: 'server' } forces a fresh fetch, bypassing Firestore's local cache
+        const snap = await db.collection('leaderboard').orderBy('stars','desc').limit(50).get({ source: 'server' });
         _renderLeaderboardEntries(snap.docs.map(d => d.data()));
     } catch(e) {
-        el.innerHTML = '<div style="text-align:center;padding:40px;color:#f66">Fehler beim Laden.</div>';
+        // Fallback to cache if server unreachable
+        try {
+            const snap = await db.collection('leaderboard').orderBy('stars','desc').limit(50).get();
+            _renderLeaderboardEntries(snap.docs.map(d => d.data()));
+        } catch(e2) {
+            el.innerHTML = '<div style="text-align:center;padding:40px;color:#f66">Fehler beim Laden.</div>';
+        }
     }
 }
  
@@ -1740,7 +1751,7 @@ function redeemVoucher() {
     buildShop();
 }
 
-function equipItem(id) {
+async function equipItem(id) {
     if (!currentUser) return;
     if (!currentUser.equipped) currentUser.equipped = {};
     const slot = ITEM_SLOTS[id];
@@ -1751,7 +1762,7 @@ function equipItem(id) {
     } else {
         currentUser.equipped[slot] = id;
     }
-    saveUser();
+    await saveUser();
     buildShop();
     // Refresh profile if open
     if (document.getElementById('profilePage').classList.contains('active')) renderProfile(currentUser);
@@ -1773,14 +1784,17 @@ function openMyProfile() {
     renderProfile(currentUser);
 }
 
-function openProfileById(name) {
-    // For leaderboard clicks – load from stored users
-    const users = JSON.parse(localStorage.getItem('cg_users') || '{}');
-    const user = users[name];
-    if (!user) return;
-    showPage('profile');
-    document.getElementById('profilePageTitle').textContent = `👤 ${name}`;
-    renderProfile(user, name !== currentUser?.name);
+async function openProfileById(name) {
+    // Load from Firestore (was wrongly reading from localStorage)
+    await waitForDb();
+    try {
+        const snap = await db.collection('users').where('name','==',name).limit(1).get();
+        if (snap.empty) return;
+        const user = Object.assign({}, snap.docs[0].data(), {uid: snap.docs[0].id});
+        showPage('profile');
+        document.getElementById('profilePageTitle').textContent = `👤 ${name}`;
+        renderProfile(user, name !== currentUser?.name);
+    } catch(e) { console.error('openProfileById:', e); }
 }
 
 function renderProfile(user, readOnly = false) {
@@ -4359,10 +4373,19 @@ async function leiterSaveUserById(name, safeId, btn) {
     const ptsStr = ptsChange === 0 ? '' : (ptsChange > 0 ? `+${ptsChange} 🎯 Punkte` : `${ptsChange} 🎯 Punkte`);
     const strStr = strChange === 0 ? '' : (strChange > 0 ? `+${strChange} ⭐ Sterne` : `${strChange} ⭐ Sterne`);
     const changes = [ptsStr, strStr].filter(Boolean).join(', ') || 'keine Änderung';
+    // totalPointsEver: take the higher of the existing value or the new pts
+    const newTotalEver = Math.max(userData.totalPointsEver||0, pts);
     try {
-        await db.collection('users').doc(userData.uid).set({ points:pts, stars:str }, { merge: true });
+        await db.collection('users').doc(userData.uid).set({ points:pts, stars:str, totalPointsEver:newTotalEver }, { merge: true });
         await db.collection('leaderboard').doc(userData.uid).set({ name, stars:str, points:pts, equipped:userData.equipped||{}, inventory:userData.inventory||[] }, { merge: true });
-        if (currentUser?.name===name) { currentUser.points=pts; currentUser.stars=str; updateHUD(); }
+        if (currentUser?.name===name) {
+            currentUser.points=pts;
+            currentUser.stars=str;
+            currentUser.totalPointsEver=newTotalEver;
+            updateHUD();
+            checkAutoUnlock();
+            buildGamesGrid();
+        }
         addLeiterNotification(`"${name}": ${changes} (neu: ${pts} 🎯 / ${str} ⭐)`);
         if (btn) { const o=btn.textContent; btn.textContent='✅'; btn.style.background='var(--green)'; btn.style.color='#000'; setTimeout(()=>{btn.textContent=o;btn.style.background='';btn.style.color='';},1500); }
     } catch(e) { alert('Fehler: '+e.message); }
@@ -4432,13 +4455,23 @@ async function adminSaveUserById(name, safeId, btn) {
     if (!ptsEl || !strEl) { alert('Eingabefelder nicht gefunden!'); return; }
     const pts = Math.max(0, parseInt(ptsEl.value)||0);
     const str = Math.max(0, parseInt(strEl.value)||0);
+    // totalPointsEver: take the higher of the existing value or the new pts
+    // so auto-unlock works correctly when admin raises someone's points
+    const newTotalEver = Math.max(userData.totalPointsEver||0, pts);
     try {
-        await db.collection('users').doc(userData.uid).set({ points:pts, stars:str }, { merge: true });
+        await db.collection('users').doc(userData.uid).set({ points:pts, stars:str, totalPointsEver:newTotalEver }, { merge: true });
         await db.collection('leaderboard').doc(userData.uid).set({
             name, stars:str, points:pts,
             equipped:userData.equipped||{}, inventory:userData.inventory||[]
         }, { merge: true });
-        if (currentUser?.name === name) { currentUser.points=pts; currentUser.stars=str; updateHUD(); }
+        if (currentUser?.name === name) {
+            currentUser.points=pts;
+            currentUser.stars=str;
+            currentUser.totalPointsEver=newTotalEver;
+            updateHUD();
+            checkAutoUnlock();
+            buildGamesGrid();
+        }
         if (btn) { const o=btn.textContent; btn.textContent='✅ Gespeichert!'; btn.style.background='var(--green)'; btn.style.color='#000'; setTimeout(()=>{btn.textContent=o;btn.style.background='';btn.style.color='';},1500); }
     } catch(e) { alert('Fehler beim Speichern: '+e.message); }
 }
