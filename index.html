@@ -884,7 +884,7 @@ function onLogin() {
     document.getElementById('menuUsername').textContent = currentUser.name;
     document.getElementById('menuUserSub').textContent = '\u2B50 ' + formatNum(currentUser.stars||0) + ' Sterne  \u2022  \uD83C\uDFAF ' + formatNum(currentUser.points||0) + ' Punkte';
     document.getElementById('logoutBtn').style.display = 'flex';
-    checkAutoUnlock();
+    checkAutoUnlock(false); // sync unlocked list silently on login, no popup
     updateHUD();
 }
 
@@ -1213,7 +1213,8 @@ function showGameOver(score) {
  
 // Auto-unlock games when player reaches the points threshold
 // Once unlocked it stays unlocked forever (even if points drop later)
-function checkAutoUnlock() {
+// showAlert=false on login so returning players don't see the popup every time
+async function checkAutoUnlock(showAlert = true) {
     if (!currentUser) return;
     if (currentUser.totalPointsEver === undefined) currentUser.totalPointsEver = 0;
     if (!currentUser.unlocked) currentUser.unlocked = [];
@@ -1228,9 +1229,12 @@ function checkAutoUnlock() {
         }
     });
     if (newlyUnlocked.length > 0) {
-        saveUser(); // persists the new unlocked list to Firestore
-        const names = newlyUnlocked.map(g => `${g.emoji} ${g.name}`).join('\n');
-        setTimeout(() => alert(`🎉 Neue Spiele freigeschaltet!\n\n${names}`), 400);
+        await saveUser(); // persists the new unlocked list to Firestore
+        buildGamesGrid();
+        if (showAlert) {
+            const names = newlyUnlocked.map(g => `${g.emoji} ${g.name}`).join('\n');
+            setTimeout(() => alert(`🎉 Neue Spiele freigeschaltet!\n\n${names}`), 400);
+        }
     }
 }
  
@@ -1285,8 +1289,7 @@ function _renderLeaderboardEntries(entries) {
         : (eq.color === 'color_red' && inv.includes('color_red')) ? 'background:linear-gradient(90deg,#ff2222,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;'
         : (eq.color === 'color_purple' && inv.includes('color_purple')) ? 'background:linear-gradient(90deg,#a855f7,#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;'
         : '';
-        const frameIcons = { frame_gold:'🖼️', frame_flame:'🔥', frame_ice:'❄️', frame_neon:'💡', frame_dark:'🌑', frame_side:'▌', frame_rainbow:'🌈', frame_hacker:'💻', frame_thunder:'⚡', frame_galaxy:'🌌', frame_solar:'☀️', frame_diamond:'💎' };
-        const frame = (eq.frame && inv.includes(eq.frame)) ? (frameIcons[eq.frame]||'') : '';
+        const frame = ''; // no frame emoji in leaderboard
         const lbRowStyles = {
             frame_gold:    'background:linear-gradient(90deg,rgba(255,215,0,0.35),rgba(26,26,46,0.97));border-left:6px solid #ffd700;border-top:2px solid rgba(255,215,0,0.6);border-bottom:2px solid rgba(255,215,0,0.6);box-shadow:0 0 20px rgba(255,215,0,0.35),inset 0 0 30px rgba(255,215,0,0.07);',
             frame_flame:   'background:linear-gradient(90deg,rgba(255,80,0,0.45),rgba(255,140,0,0.18),rgba(26,26,46,0.97));border-left:6px solid #ff4400;border-top:2px solid rgba(255,80,0,0.6);border-bottom:2px solid rgba(255,80,0,0.6);box-shadow:0 0 22px rgba(255,80,0,0.45),inset 0 0 30px rgba(255,80,0,0.08);',
@@ -1820,8 +1823,7 @@ function renderProfile(user, readOnly = false) {
         frame_diamond: 'border:6px solid #c0f8ff;box-shadow:0 0 30px #a0f0ff,0 0 70px rgba(160,240,255,0.8),0 0 100px rgba(255,255,255,0.2),inset 0 0 20px rgba(160,240,255,0.12);border-radius:18px;display:inline-block;padding:8px;background:rgba(160,240,255,0.07);',
     };
     const frameStyle = (eq.frame && inv.includes(eq.frame)) ? (frameStyles[eq.frame]||'') : '';
-    const frameIcons = { frame_gold:'🖼️', frame_flame:'🔥', frame_ice:'❄️', frame_neon:'💡', frame_dark:'🌑', frame_side:'▌', frame_rainbow:'🌈', frame_hacker:'💻', frame_thunder:'⚡', frame_galaxy:'🌌', frame_solar:'☀️', frame_diamond:'💎' };
-    const frameIcon  = (eq.frame && inv.includes(eq.frame)) ? (frameIcons[eq.frame]||'') : '';
+    const frameIcon  = ''; // no frame emoji shown in profile badges
     const nameColor = (eq.color === 'color_neon' && inv.includes('color_neon'))
         ? 'background:linear-gradient(90deg,#00d4ff,#ff006e,#00ff88);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;'
         : (eq.color === 'color_gold' && inv.includes('color_gold'))
