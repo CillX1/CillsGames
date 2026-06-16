@@ -786,6 +786,7 @@ async function saveUser() {
     try {
         const data = Object.assign({}, currentUser);
         const uid = data.uid; delete data.uid;
+        delete data._notifiedUnlocks; // session-only, don't save to Firestore
         await db.collection('users').doc(uid).set(data);
         await db.collection('leaderboard').doc(uid).set({
             name: currentUser.name,
@@ -904,11 +905,8 @@ function sanitizeUser() {
     if (!Array.isArray(currentUser.adminUnlocked)) currentUser.adminUnlocked = [];
     if (!currentUser.equipped) currentUser.equipped = {};
     if (!Array.isArray(currentUser.inventory)) currentUser.inventory = [];
-    currentUser.unlocked = currentUser.unlocked.filter(id => {
-        const g = GAME_LIST.find(x => x.id === id);
-        if (!g || !g.unlock) return true;
-        return currentUser.adminUnlocked.includes(id) || currentUser.totalPointsEver >= g.unlock;
-    });
+    // Keep all unlocked games - don't strip them on load
+    // (admin unlocks and earned unlocks should persist)
     for (const slot of Object.keys(currentUser.equipped)) {
         if (!currentUser.inventory.includes(currentUser.equipped[slot])) {
             delete currentUser.equipped[slot];
@@ -1214,20 +1212,23 @@ function showGameOver(score) {
 // Once unlocked it stays unlocked forever (even if points drop later)
 function checkAutoUnlock() {
     if (!currentUser) return;
-    // totalPointsEver only grows from actually PLAYING (set in showGameOver)
-    // Never set it from current points so admin gifts don't auto-unlock
     if (currentUser.totalPointsEver === undefined) currentUser.totalPointsEver = 0;
     if (!currentUser.unlocked) currentUser.unlocked = [];
+    // Only track newly unlocked in THIS session (not already saved)
+    const alreadySaved = currentUser._notifiedUnlocks || [];
     let newlyUnlocked = [];
     GAME_LIST.forEach(g => {
         if (!g.unlock) return;
         if (currentUser.unlocked.includes(g.id)) return;
         if (currentUser.totalPointsEver >= g.unlock) {
             currentUser.unlocked.push(g.id);
-            newlyUnlocked.push(g);
+            // Only alert if not already notified
+            if (!alreadySaved.includes(g.id)) newlyUnlocked.push(g);
         }
     });
     if (newlyUnlocked.length > 0) {
+        if (!currentUser._notifiedUnlocks) currentUser._notifiedUnlocks = [];
+        newlyUnlocked.forEach(g => currentUser._notifiedUnlocks.push(g.id));
         saveUser();
         const names = newlyUnlocked.map(g => `${g.emoji} ${g.name}`).join('\n');
         setTimeout(() => alert(`🎉 Neue Spiele freigeschaltet!\n\n${names}`), 400);
