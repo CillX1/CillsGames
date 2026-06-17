@@ -663,10 +663,6 @@ footer span{background:linear-gradient(45deg,var(--cyan),var(--purple));-webkit-
     </div>
     <div id="adminFeedbackList"></div>
   </div>
-  <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:24px;margin-top:20px">
-    <div style="font-size:16px;font-weight:700;margin-bottom:16px;color:var(--green)">🎟️ Gutschein-Codes</div>
-    <div id="adminVoucherList"></div>
-  </div>
 </div>
  
 <!-- ══ LEITER PAGE ══ -->
@@ -1573,6 +1569,13 @@ const SHOP_PROFIL = [
     { id:'frame_ice',      name:'Ice Rahmen',          icon:'❄️', desc:'Eiskalter Rahmen',                 price:1400, rarity:'rare'      },
     { id:'badge_sigma',    name:'Sigma Badge',         icon:'⚡', desc:'Der Sigma Grindset',               price:900,  rarity:'rare'      },
     { id:'badge_mystery',  name:'Mystery Badge',       icon:'🎭', desc:'Geheimnisvoll und selten',          price:1600, rarity:'rare'      },
+    { id:'badge_ghost',    name:'Ghost Badge',         icon:'👻', desc:'Unsichtbar wie ein Geist',          price:2000, rarity:'epic'      },
+    { id:'badge_admin',    name:'Admin Badge',         icon:'🛡️', desc:'Das Admin-Abzeichen',              price:5000, rarity:'legendary' },
+    { id:'title_admin',    name:'Titel: Admin',        icon:'🔐', desc:'Der Admin-Titel',                  price:5000, rarity:'legendary' },
+    { id:'title_leiter',   name:'Titel: Leiter',       icon:'👔', desc:'Der Leiter-Titel',                 price:4000, rarity:'epic'      },
+    { id:'title_gambler',  name:'Titel: Gambling Master', icon:'🎰', desc:'Meister des Glücksspiels',      price:3000, rarity:'epic'      },
+    { id:'frame_flame',    name:'Flame Rahmen',        icon:'🔥', desc:'Feuriger Profilrahmen',            price:2500, rarity:'epic'      },
+    { id:'frame_hacker',   name:'Hacker Rahmen',       icon:'💻', desc:'Matrix-grüner Hacker-Rahmen',     price:4000, rarity:'legendary' },
 ];
 let shopTab = 'profil';
 function switchShopTab(tab) { shopTab = tab; }
@@ -1628,15 +1631,6 @@ const ITEM_NAMES = {
 // Gutschein-Codes (nur per Code erhältlich)
 const VOUCHER_CODES = {
     'CILLS-CROWN-VIP': { item:'badge_crown',   label:'👑 VIP Krone Badge' },
-    'CILLS-RAINBOW-X': { item:'title_rainbow', label:'🌈 Rainbow Titel' },
-    'CILLS-GHOST-777': { item:'badge_ghost',   label:'👻 Ghost Badge' },
-    'CILLS-DRAGON-ZZ': { item:'badge_dragon',  label:'🐉 Dragon Badge' },
-    'CILLS-NINJA-404': { item:'title_ninja',   label:'🥷 Ninja Titel' },
-    'CILLS-STAR-LORD': { item:'title_starlord',label:'🌟 Star Lord Titel' },
-    'CILLS-FLAME-999': { item:'frame_flame',   label:'🔥 Flame Rahmen' },
-    'CILLS-ICE-COLD1': { item:'frame_ice',     label:'❄️ Ice Rahmen' },
-    'CILLS-SIGMA-001': { item:'badge_sigma',   label:'⚡ Sigma Badge' },
-    'CILLS-SECRET-42': { item:'badge_mystery', label:'🎭 Mystery Badge' },
     'CILLS-ADMIN-X99': { item:'badge_admin',   label:'🛡️ Admin Badge' },
     'CILLS-ADMIN-TTL': { item:'title_admin',   label:'🔐 Admin Titel' },
     'CILLS-LEITER-TTL':{ item:'title_leiter',  label:'👔 Leiter Titel' },
@@ -4157,27 +4151,6 @@ async function loadAdminPage() {
                 </div>`).join('');
         }
     } catch(e) { fbEl.innerHTML = '<div style="color:#666;font-size:14px">Fehler beim Laden.</div>'; }
-
-    // Voucher codes
-    const vEl = document.getElementById('adminVoucherList');
-    const usedCounts = {};
-    Object.values(users).forEach(u => {
-        (u.usedVouchers||[]).forEach(code => { usedCounts[code] = (usedCounts[code]||0)+1; });
-    });
-    vEl.innerHTML = `
-        <div style="font-size:12px;color:#666;margin-bottom:12px">Klicke auf einen Code um ihn in die Zwischenablage zu kopieren.</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">
-        ${Object.entries(VOUCHER_CODES).map(([code, v]) => {
-            const used = usedCounts[code] || 0;
-            return `<div onclick="adminCopyCode('${code}')" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 16px;cursor:pointer;transition:.2s" onmouseover="this.style.borderColor='var(--cyan)'" onmouseout="this.style.borderColor='rgba(255,255,255,.12)'">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                    <span style="font-family:monospace;font-size:13px;font-weight:700;color:var(--cyan)">${code}</span>
-                    <span style="font-size:11px;color:${used>0?'var(--gold)':'#555'}">${used>0?`${used}x benutzt`:'Unbenutzt'}</span>
-                </div>
-                <div style="font-size:13px;color:#ccc">${v.label}</div>
-            </div>`;
-        }).join('')}
-        </div>`;
 
     // Leiter notifications
     const notes = await getLeiterNotes();
