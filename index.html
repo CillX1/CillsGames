@@ -747,22 +747,31 @@ function waitForDb() {
 
 async function saveUser() {
     if (!currentUser) return;
+    if (!currentUser.uid) { console.error('saveUser: keine uid'); return; }
     await waitForDb();
     try {
         const data = Object.assign({}, currentUser);
         const uid = data.uid; delete data.uid;
-        await db.collection('users').doc(uid).set(data, { merge: true });
+        await db.collection('users').doc(uid).set(data);
         await db.collection('leaderboard').doc(uid).set({
             name: currentUser.name,
             stars: currentUser.stars||0,
             points: currentUser.points||0,
             equipped: currentUser.equipped||{},
             inventory: currentUser.inventory||[],
-        }, { merge: true });
+        });
         if (document.getElementById('leaderboardPage')?.classList.contains('active')) {
             loadLeaderboard();
         }
-    } catch(e) { console.error('saveUser:', e); }
+    } catch(e) {
+        console.error('saveUser Fehler:', e);
+        // Visible error toast
+        const t = document.createElement('div');
+        t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#c00;color:#fff;padding:10px 20px;border-radius:10px;z-index:99999;font-size:13px;max-width:90vw;text-align:center';
+        t.textContent = '❌ Firebase Fehler: ' + (e.code || e.message);
+        document.body.appendChild(t);
+        setTimeout(() => t.remove(), 8000);
+    }
 }
 
 async function loadUserFromFirestore(uid) {
