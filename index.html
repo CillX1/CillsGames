@@ -685,8 +685,6 @@ footer span{background:linear-gradient(45deg,var(--cyan),var(--purple));-webkit-
   </div>
 </div>
 
-<!-- ══ BLACKJACK MODAL ══ -->
- 
 <!-- ══ ROULETTE MODAL ══ -->
 <div class="modal casino-game-modal" id="rouletteModal">
   <div class="modal-box" style="width:min(460px,95vw)">
@@ -761,11 +759,10 @@ async function saveUser() {
             equipped: currentUser.equipped||{},
             inventory: currentUser.inventory||[],
         }, { merge: true });
-        // If leaderboard page is currently open, refresh it live
         if (document.getElementById('leaderboardPage')?.classList.contains('active')) {
             loadLeaderboard();
         }
-    } catch(e) { console.error('saveUser error:', e); }
+    } catch(e) { console.error('saveUser:', e); }
 }
 
 async function loadUserFromFirestore(uid) {
@@ -851,7 +848,7 @@ function onLogin() {
     document.getElementById('menuUsername').textContent = currentUser.name;
     document.getElementById('menuUserSub').textContent = '\u2B50 ' + formatNum(currentUser.stars||0) + ' Sterne  \u2022  \uD83C\uDFAF ' + formatNum(currentUser.points||0) + ' Punkte';
     document.getElementById('logoutBtn').style.display = 'flex';
-    checkAutoUnlock(false); // sync unlocked list silently on login, no popup
+    checkAutoUnlock(false); // silent on login – no popup
     updateHUD();
 }
 
@@ -1167,7 +1164,7 @@ function showGameOver(score) {
         // totalPointsEver accumulates all points ever earned through gameplay (never decreases)
         if (currentUser.totalPointsEver === undefined) currentUser.totalPointsEver = 0;
         currentUser.totalPointsEver = (currentUser.totalPointsEver || 0) + ptsEarned;
-        saveUser(); // fire-and-forget: runs in background, merge:true prevents data loss
+        saveUser();
         checkAutoUnlock(); // auto-unlock games when points threshold reached
         pushLeaderboard();
         updateHUD();
@@ -1188,7 +1185,6 @@ async function checkAutoUnlock(showAlert = true) {
     let newlyUnlocked = [];
     GAME_LIST.forEach(g => {
         if (!g.unlock) return;
-        // Already unlocked → skip silently, no alert
         if (currentUser.unlocked.includes(g.id)) return;
         if (currentUser.totalPointsEver >= g.unlock) {
             currentUser.unlocked.push(g.id);
@@ -1196,7 +1192,7 @@ async function checkAutoUnlock(showAlert = true) {
         }
     });
     if (newlyUnlocked.length > 0) {
-        await saveUser(); // persists the new unlocked list to Firestore
+        saveUser();
         buildGamesGrid();
         if (showAlert) {
             const names = newlyUnlocked.map(g => `${g.emoji} ${g.name}`).join('\n');
@@ -1256,34 +1252,34 @@ function _renderLeaderboardEntries(entries) {
         : (eq.color === 'color_red' && inv.includes('color_red')) ? 'background:linear-gradient(90deg,#ff2222,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;'
         : (eq.color === 'color_purple' && inv.includes('color_purple')) ? 'background:linear-gradient(90deg,#a855f7,#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;'
         : '';
-        const frame = ''; // no frame emoji in leaderboard
+        const frame = ''; // frame shown via row style, not emoji
         const lbRowStyles = {
-            frame_gold:    'background:linear-gradient(90deg,rgba(255,215,0,0.35),rgba(26,26,46,0.97));border-left:6px solid #ffd700;border-top:2px solid rgba(255,215,0,0.6);border-bottom:2px solid rgba(255,215,0,0.6);box-shadow:0 0 20px rgba(255,215,0,0.35),inset 0 0 30px rgba(255,215,0,0.07);',
-            frame_flame:   'background:linear-gradient(90deg,rgba(255,80,0,0.45),rgba(255,140,0,0.18),rgba(26,26,46,0.97));border-left:6px solid #ff4400;border-top:2px solid rgba(255,80,0,0.6);border-bottom:2px solid rgba(255,80,0,0.6);box-shadow:0 0 22px rgba(255,80,0,0.45),inset 0 0 30px rgba(255,80,0,0.08);',
-            frame_neon:    'background:rgba(0,212,255,0.1);border-left:6px solid #00d4ff;border-top:2px solid #00d4ff;border-bottom:2px solid #00d4ff;border-right:2px solid rgba(0,212,255,0.4);box-shadow:0 0 22px rgba(0,212,255,0.6),inset 0 0 20px rgba(0,212,255,0.08);',
-            frame_ice:     'background:linear-gradient(90deg,rgba(0,200,255,0.35),rgba(26,26,46,0.97));border-left:6px solid #00cfff;border-top:2px solid rgba(0,200,255,0.7);border-bottom:2px solid rgba(0,200,255,0.7);box-shadow:0 0 20px rgba(0,200,255,0.5),inset 0 0 30px rgba(0,200,255,0.07);',
-            frame_rainbow: 'border:3px solid transparent;background:linear-gradient(rgba(26,26,46,0.97),rgba(26,26,46,0.97)) padding-box,linear-gradient(90deg,#ff006e,#ff8800,#ffd700,#00ff88,#00d4ff,#7b2cbf) border-box;box-shadow:0 0 22px rgba(200,100,255,0.45),0 0 40px rgba(255,100,0,0.2);',
-            frame_dark:    'background:linear-gradient(90deg,rgba(100,100,160,0.5),rgba(26,26,46,0.97));border-left:6px solid #c0c0e8;border-top:2px solid rgba(180,180,220,0.6);border-bottom:2px solid rgba(180,180,220,0.6);box-shadow:0 0 18px rgba(150,150,200,0.45);',
-            frame_side:    'border-left:8px solid #ff006e;box-shadow:inset 6px 0 24px rgba(255,0,110,0.5),0 0 16px rgba(255,0,110,0.3);background:rgba(255,0,110,0.08);',
-            frame_hacker:  'background:#000;border-left:6px solid #00ff41;border-top:2px solid #00ff41;border-bottom:2px solid #00ff41;box-shadow:0 0 24px rgba(0,255,65,0.7),inset 0 0 30px rgba(0,255,65,0.08);position:relative;overflow:hidden;',
-            frame_thunder: 'background:linear-gradient(90deg,rgba(255,220,0,0.35),rgba(26,26,46,0.97));border-left:6px solid #ffe000;border-top:2px solid rgba(255,220,0,0.7);border-bottom:2px solid rgba(255,220,0,0.7);box-shadow:0 0 24px rgba(255,220,0,0.55),inset 0 0 30px rgba(255,220,0,0.07);',
-            frame_galaxy:  'background:linear-gradient(90deg,rgba(168,85,247,0.4),rgba(26,26,46,0.97));border-left:6px solid #c084fc;border-top:2px solid rgba(192,132,252,0.6);border-bottom:2px solid rgba(192,132,252,0.6);box-shadow:0 0 24px rgba(168,85,247,0.55),inset 0 0 30px rgba(168,85,247,0.08);',
-            frame_solar:   'background:linear-gradient(90deg,rgba(255,100,0,0.45),rgba(26,26,46,0.97));border-left:6px solid #ff7700;border-top:2px solid rgba(255,100,0,0.7);border-bottom:2px solid rgba(255,100,0,0.7);box-shadow:0 0 26px rgba(255,100,0,0.55),inset 0 0 30px rgba(255,100,0,0.08);',
-            frame_diamond: 'background:linear-gradient(90deg,rgba(160,240,255,0.35),rgba(26,26,46,0.97));border-left:6px solid #c0f8ff;border-top:2px solid rgba(160,240,255,0.8);border-bottom:2px solid rgba(160,240,255,0.8);box-shadow:0 0 28px rgba(160,240,255,0.65),0 0 50px rgba(255,255,255,0.12),inset 0 0 30px rgba(160,240,255,0.06);',
+            frame_gold:    'background:linear-gradient(90deg,rgba(255,215,0,0.22),rgba(26,26,46,0.97));border-left:4px solid #ffd700;border-top:1px solid rgba(255,215,0,0.3);border-bottom:1px solid rgba(255,215,0,0.3);box-shadow:0 0 12px rgba(255,215,0,0.15);',
+            frame_flame:   'background:linear-gradient(90deg,rgba(255,80,0,0.28),rgba(255,140,0,0.12),rgba(26,26,46,0.97));border-left:4px solid #ff4400;border-top:1px solid rgba(255,80,0,0.3);border-bottom:1px solid rgba(255,80,0,0.3);box-shadow:0 0 14px rgba(255,80,0,0.2);',
+            frame_neon:    'background:rgba(0,212,255,0.06);border:2px solid #00d4ff;box-shadow:0 0 14px rgba(0,212,255,0.4),inset 0 0 10px rgba(0,212,255,0.05);',
+            frame_ice:     'background:linear-gradient(90deg,rgba(0,200,255,0.22),rgba(26,26,46,0.97));border-left:4px solid #00cfff;border-top:1px solid rgba(0,200,255,0.3);border-bottom:1px solid rgba(0,200,255,0.3);box-shadow:0 0 12px rgba(0,200,255,0.2);',
+            frame_rainbow: 'border:2px solid transparent;background:linear-gradient(rgba(26,26,46,0.97),rgba(26,26,46,0.97)) padding-box,linear-gradient(90deg,#ff006e,#ff8800,#ffd700,#00ff88,#00d4ff,#7b2cbf) border-box;box-shadow:0 0 14px rgba(200,100,255,0.2);',
+            frame_dark:    'background:linear-gradient(90deg,rgba(80,80,120,0.35),rgba(26,26,46,0.97));border-left:4px solid #9090c0;border-top:1px solid rgba(150,150,180,0.3);border-bottom:1px solid rgba(150,150,180,0.3);box-shadow:0 0 10px rgba(100,100,150,0.2);',
+            frame_side:    'border-left:5px solid #ff006e;box-shadow:inset 4px 0 16px rgba(255,0,110,0.3);background:rgba(255,0,110,0.05);',
+            frame_hacker:  'background:#000;border:2px solid #00ff41;box-shadow:0 0 18px rgba(0,255,65,0.5),inset 0 0 30px rgba(0,255,65,0.06);position:relative;overflow:hidden;',
+            frame_thunder: 'background:linear-gradient(90deg,rgba(255,215,0,0.22),rgba(26,26,46,0.97));border-left:4px solid #ffd700;border-top:1px solid rgba(255,215,0,0.4);border-bottom:1px solid rgba(255,215,0,0.4);box-shadow:0 0 16px rgba(255,215,0,0.3);',
+            frame_galaxy:  'background:linear-gradient(90deg,rgba(168,85,247,0.25),rgba(26,26,46,0.97));border-left:4px solid #a855f7;border-top:1px solid rgba(168,85,247,0.3);border-bottom:1px solid rgba(168,85,247,0.3);box-shadow:0 0 16px rgba(168,85,247,0.3);',
+            frame_solar:   'background:linear-gradient(90deg,rgba(255,100,0,0.28),rgba(26,26,46,0.97));border-left:4px solid #ff6600;border-top:1px solid rgba(255,100,0,0.4);border-bottom:1px solid rgba(255,100,0,0.4);box-shadow:0 0 18px rgba(255,100,0,0.3);',
+            frame_diamond: 'background:linear-gradient(90deg,rgba(160,240,255,0.22),rgba(26,26,46,0.97));border-left:4px solid #a0f0ff;border-top:1px solid rgba(160,240,255,0.4);border-bottom:1px solid rgba(160,240,255,0.4);box-shadow:0 0 20px rgba(160,240,255,0.35);',
         };
         const lbNameColors = {
-            frame_gold:    'background:linear-gradient(90deg,#ffd700,#ffaa00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;',
-            frame_flame:   'background:linear-gradient(90deg,#ff4400,#ffcc00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;',
-            frame_neon:    'color:#00d4ff;font-weight:800;text-shadow:0 0 8px #00d4ff;',
-            frame_ice:     'background:linear-gradient(90deg,#00cfff,#80eaff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;',
-            frame_rainbow: 'background:linear-gradient(90deg,#ff006e,#ff8800,#ffd700,#00ff88,#00d4ff,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;',
-            frame_dark:    'color:#d0d0f0;font-weight:800;text-shadow:0 0 6px rgba(180,180,220,0.7);',
-            frame_side:    'color:#ff66aa;font-weight:800;text-shadow:0 0 8px rgba(255,0,110,0.6);',
-            frame_hacker:  'color:#00ff41;font-family:monospace;font-weight:800;text-shadow:0 0 12px #00ff41,0 0 24px rgba(0,255,65,0.5);letter-spacing:2px;position:relative;z-index:2;',
-            frame_thunder: 'background:linear-gradient(90deg,#ffe000,#ffffff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;',
-            frame_galaxy:  'background:linear-gradient(90deg,#c084fc,#f0abfc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;',
-            frame_solar:   'background:linear-gradient(90deg,#ff7700,#ffdd00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;',
-            frame_diamond: 'background:linear-gradient(90deg,#a0f0ff,#ffffff,#a0f0ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;text-shadow:0 0 12px rgba(160,240,255,0.5);',
+            frame_gold:    'background:linear-gradient(90deg,#ffd700,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;',
+            frame_flame:   'background:linear-gradient(90deg,#ff6600,#ffcc00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;',
+            frame_neon:    'color:#00d4ff;',
+            frame_ice:     'background:linear-gradient(90deg,#00cfff,#a0eaff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;',
+            frame_rainbow: 'background:linear-gradient(90deg,#ff006e,#ffd700,#00ff88,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;',
+            frame_dark:    'color:#ddd;',
+            frame_side:    'color:#ff99cc;',
+            frame_hacker:  'color:#00ff41;font-family:monospace;font-weight:700;text-shadow:0 0 10px #00ff41;letter-spacing:2px;position:relative;z-index:2;',
+            frame_thunder: 'background:linear-gradient(90deg,#ffd700,#fff176);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;',
+            frame_galaxy:  'background:linear-gradient(90deg,#a855f7,#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;',
+            frame_solar:   'background:linear-gradient(90deg,#ff6600,#ffcc00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;',
+            frame_diamond: 'background:linear-gradient(90deg,#a0f0ff,#ffffff,#a0f0ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;',
         };
         const activeFrame = (eq.frame && inv.includes(eq.frame)) ? eq.frame : null;
         const rowExtraStyle = activeFrame ? (lbRowStyles[activeFrame]||'') : '';
@@ -1331,14 +1327,12 @@ async function loadLeaderboard() {
     const el = document.getElementById('lbContent');
     el.innerHTML = '<div style="text-align:center;padding:40px;color:#888">⏳ Lade Rangliste…</div>';
     try {
-        // { source: 'server' } forces a fresh fetch, bypassing Firestore's local cache
         const snap = await db.collection('leaderboard').orderBy('stars','desc').limit(50).get({ source: 'server' });
         _renderLeaderboardEntries(snap.docs.map(d => d.data()));
     } catch(e) {
-        // Fallback to cache if server unreachable
         try {
-            const snap = await db.collection('leaderboard').orderBy('stars','desc').limit(50).get();
-            _renderLeaderboardEntries(snap.docs.map(d => d.data()));
+            const snap2 = await db.collection('leaderboard').orderBy('stars','desc').limit(50).get();
+            _renderLeaderboardEntries(snap2.docs.map(d => d.data()));
         } catch(e2) {
             el.innerHTML = '<div style="text-align:center;padding:40px;color:#f66">Fehler beim Laden.</div>';
         }
@@ -1669,14 +1663,12 @@ async function equipItem(id) {
     const slot = ITEM_SLOTS[id];
     if (!slot) return;
     if (currentUser.equipped[slot] === id) {
-        // Toggle off
         delete currentUser.equipped[slot];
     } else {
         currentUser.equipped[slot] = id;
     }
     await saveUser();
     buildShop();
-    // Refresh profile if open
     if (document.getElementById('profilePage').classList.contains('active')) renderProfile(currentUser);
 }
 
@@ -1697,7 +1689,6 @@ function openMyProfile() {
 }
 
 async function openProfileById(name) {
-    // Load from Firestore (was wrongly reading from localStorage)
     await waitForDb();
     try {
         const snap = await db.collection('users').where('name','==',name).limit(1).get();
@@ -1724,20 +1715,20 @@ function renderProfile(user, readOnly = false) {
     const nameColor2 = ''; // placeholder removed
     const frameStyles = {
         frame_gold:    'border:6px solid #ffd700;box-shadow:0 0 30px #ffd700,0 0 60px rgba(255,215,0,0.7),inset 0 0 20px rgba(255,215,0,0.15);border-radius:18px;display:inline-block;padding:8px;background:rgba(255,215,0,0.12);',
-        frame_flame:   'border:6px solid #ff4400;box-shadow:0 0 30px #ff6600,0 0 60px rgba(255,80,0,0.7),inset 0 0 20px rgba(255,80,0,0.15);border-radius:18px;display:inline-block;padding:8px;background:rgba(255,80,0,0.12);',
-        frame_ice:     'border:6px solid #00cfff;box-shadow:0 0 30px #00cfff,0 0 60px rgba(0,200,255,0.7),inset 0 0 20px rgba(0,200,255,0.15);border-radius:18px;display:inline-block;padding:8px;background:rgba(0,200,255,0.12);',
-        frame_neon:    'border:6px solid #ff006e;box-shadow:0 0 30px #ff006e,0 0 60px rgba(255,0,110,0.7),inset 0 0 20px rgba(255,0,110,0.15);border-radius:18px;display:inline-block;padding:8px;background:rgba(255,0,110,0.12);',
-        frame_dark:    'border:6px solid #b0b0e0;box-shadow:0 0 28px rgba(160,160,220,0.9),inset 0 0 20px rgba(80,80,140,0.3);border-radius:18px;display:inline-block;padding:8px;background:rgba(40,40,80,0.6);',
-        frame_side:    'border-left:10px solid #ff006e;border-right:4px solid rgba(255,0,110,0.4);padding:8px 8px 8px 12px;border-radius:10px;display:inline-block;box-shadow:inset 6px 0 24px rgba(255,0,110,0.4),0 0 20px rgba(255,0,110,0.3);background:rgba(255,0,110,0.08);',
-        frame_rainbow: 'border:6px solid transparent;background:linear-gradient(#1a1a2e,#1a1a2e) padding-box,linear-gradient(135deg,#ff006e,#ff8800,#ffd700,#00ff88,#00d4ff,#7b2cbf,#ff006e) border-box;border-radius:18px;display:inline-block;padding:8px;box-shadow:0 0 30px rgba(200,100,255,0.6),0 0 60px rgba(255,100,0,0.3);',
-        frame_hacker:  'border:6px solid #00ff41;box-shadow:0 0 30px #00ff41,0 0 60px rgba(0,255,65,0.5),inset 0 0 20px rgba(0,255,65,0.1);border-radius:18px;display:inline-block;padding:8px;background:#000;',
-        frame_thunder: 'border:6px solid #ffe000;box-shadow:0 0 30px #ffe000,0 0 70px rgba(255,220,0,0.7),inset 0 0 20px rgba(255,220,0,0.12);border-radius:18px;display:inline-block;padding:8px;background:rgba(255,220,0,0.08);',
-        frame_galaxy:  'border:6px solid #c084fc;box-shadow:0 0 30px #a855f7,0 0 70px rgba(168,85,247,0.7),inset 0 0 20px rgba(168,85,247,0.15);border-radius:18px;display:inline-block;padding:8px;background:rgba(50,0,100,0.5);',
-        frame_solar:   'border:6px solid #ff7700;box-shadow:0 0 30px #ff6600,0 0 70px rgba(255,100,0,0.7),inset 0 0 20px rgba(255,100,0,0.15);border-radius:18px;display:inline-block;padding:8px;background:rgba(255,80,0,0.1);',
-        frame_diamond: 'border:6px solid #c0f8ff;box-shadow:0 0 30px #a0f0ff,0 0 70px rgba(160,240,255,0.8),0 0 100px rgba(255,255,255,0.2),inset 0 0 20px rgba(160,240,255,0.12);border-radius:18px;display:inline-block;padding:8px;background:rgba(160,240,255,0.07);',
+        frame_flame:   'border:4px solid #ff4400;box-shadow:0 0 22px #ff6600,0 0 40px rgba(255,80,0,0.4);border-radius:16px;display:inline-block;padding:5px;background:rgba(255,80,0,0.05);',
+        frame_ice:     'border:4px solid #00cfff;box-shadow:0 0 22px #00cfff,0 0 40px rgba(0,200,255,0.4);border-radius:16px;display:inline-block;padding:5px;background:rgba(0,200,255,0.05);',
+        frame_neon:    'border:4px solid #ff006e;box-shadow:0 0 22px #ff006e,0 0 40px rgba(255,0,110,0.4);border-radius:16px;display:inline-block;padding:5px;background:rgba(255,0,110,0.05);',
+        frame_dark:    'border:4px solid #9090c0;box-shadow:0 0 18px rgba(120,120,180,0.6);border-radius:16px;display:inline-block;padding:5px;background:rgba(40,40,60,0.5);',
+        frame_side:    'border-left:6px solid #ff006e;padding-left:8px;border-radius:4px;display:inline-block;box-shadow:inset 4px 0 16px rgba(255,0,110,0.3);',
+        frame_rainbow: 'border:4px solid transparent;background:linear-gradient(#1a1a2e,#1a1a2e) padding-box,linear-gradient(90deg,#ff006e,#ff8800,#ffd700,#00ff88,#00d4ff,#7b2cbf) border-box;border-radius:16px;display:inline-block;padding:5px;box-shadow:0 0 20px rgba(200,100,255,0.3);',
+        frame_hacker:  'border:3px solid #00ff41;box-shadow:0 0 22px #00ff41,0 0 40px rgba(0,255,65,0.3);border-radius:16px;display:inline-block;padding:5px;background:#000;',
+        frame_thunder: 'border:4px solid #ffd700;box-shadow:0 0 24px #ffd700,0 0 50px rgba(255,200,0,0.5);border-radius:16px;display:inline-block;padding:5px;background:rgba(255,215,0,0.04);',
+        frame_galaxy:  'border:4px solid #a855f7;box-shadow:0 0 24px #a855f7,0 0 50px rgba(168,85,247,0.5);border-radius:16px;display:inline-block;padding:5px;background:rgba(30,0,60,0.5);',
+        frame_solar:   'border:4px solid #ff6600;box-shadow:0 0 26px #ff6600,0 0 50px rgba(255,100,0,0.5);border-radius:16px;display:inline-block;padding:5px;background:rgba(255,80,0,0.05);',
+        frame_diamond: 'border:4px solid #a0f0ff;box-shadow:0 0 26px #a0f0ff,0 0 50px rgba(160,240,255,0.5),0 0 80px rgba(255,255,255,0.15);border-radius:16px;display:inline-block;padding:5px;background:rgba(160,240,255,0.04);',
     };
     const frameStyle = (eq.frame && inv.includes(eq.frame)) ? (frameStyles[eq.frame]||'') : '';
-    const frameIcon  = ''; // no frame emoji shown in profile badges
+    const frameIcon  = ''; // no frame emoji in profile
     const nameColor = (eq.color === 'color_neon' && inv.includes('color_neon'))
         ? 'background:linear-gradient(90deg,#00d4ff,#ff006e,#00ff88);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;'
         : (eq.color === 'color_gold' && inv.includes('color_gold'))
@@ -1780,8 +1771,8 @@ function renderProfile(user, readOnly = false) {
     }
 
     document.getElementById('profileContent').innerHTML = `
-        <div class="profile-card" style="text-align:center;${frameStyle ? 'border:none;'+frameStyle.replace('display:inline-block;','').replace('border-radius:18px','border-radius:20px') : ''}">
-            <div class="profile-avatar">🎮</div>
+        <div class="profile-card" style="text-align:center">
+            <div class="profile-avatar"><span style="${frameStyle}">🎮</span></div>
             <div class="profile-name" style="${nameColor}">${user.name}</div>
             <div class="profile-title">${eq.title ? `「${ITEM_DISPLAY[eq.title]||eq.title}」` : ''}</div>
             <div class="profile-badges">
@@ -4107,7 +4098,6 @@ async function loadAdminPage() {
                 </div>
             </div>`;
         }).join('');
-        // Attach event listeners — use uid directly to avoid name-lookup failures
         document.querySelectorAll('.adm-save-btn').forEach(btn => {
             btn.onclick = () => adminSaveUserByUid(btn.dataset.uid, decodeURIComponent(btn.dataset.name), btn.dataset.idx, btn);
         });
@@ -4272,20 +4262,16 @@ async function leiterSaveUser(name) {
     await waitForDb();
     const snap = await db.collection('users').where('name','==',name).limit(1).get();
     if (snap.empty) { alert('Spieler nicht gefunden: '+name); return; }
-    const doc = snap.docs[0];
-    const d = doc.data();
-    await leiterSaveUserByUid(doc.id, name, null, null, d.points||0, d.stars||0, d.totalPointsEver||0);
+    const d = snap.docs[0].data();
+    await leiterSaveUserByUid(snap.docs[0].id, name, null, null, d.points||0, d.stars||0, d.totalPointsEver||0);
 }
-
 async function leiterSaveUserById(name, safeId, btn) {
-    // Legacy wrapper
     await waitForDb();
     const snap = await db.collection('users').where('name','==',name).limit(1).get();
     if (snap.empty) { alert('Spieler nicht gefunden: '+name); return; }
-    const doc = snap.docs[0]; const d = doc.data();
-    await leiterSaveUserByUid(doc.id, name, safeId, btn, d.points||0, d.stars||0, d.totalPointsEver||0);
+    const d = snap.docs[0].data();
+    await leiterSaveUserByUid(snap.docs[0].id, name, safeId, btn, d.points||0, d.stars||0, d.totalPointsEver||0);
 }
-
 async function leiterSaveUserByUid(uid, name, safeId, btn, oldPts, oldStr, oldTotalEver) {
     await waitForDb();
     if (!uid) { alert('Fehler: keine UID!'); return; }
@@ -4294,25 +4280,19 @@ async function leiterSaveUserByUid(uid, name, safeId, btn, oldPts, oldStr, oldTo
     if (!ptsEl || !strEl) { alert('Eingabefelder nicht gefunden!'); return; }
     const pts = Math.max(0, parseInt(ptsEl.value)||0);
     const str = Math.max(0, parseInt(strEl.value)||0);
-    const ptsChange = pts - oldPts;
-    const strChange = str - oldStr;
-    const ptsStr = ptsChange === 0 ? '' : (ptsChange > 0 ? `+${ptsChange} 🎯 Punkte` : `${ptsChange} 🎯 Punkte`);
-    const strStr = strChange === 0 ? '' : (strChange > 0 ? `+${strChange} ⭐ Sterne` : `${strChange} ⭐ Sterne`);
-    const changes = [ptsStr, strStr].filter(Boolean).join(', ') || 'keine Änderung';
-    const newTotalEver = Math.max(oldTotalEver, pts);
-    // Read equipped/inventory for leaderboard update
+    const ptsChange = pts-(oldPts||0), strChange = str-(oldStr||0);
+    const ptsStr = ptsChange===0?'':(ptsChange>0?`+${ptsChange} 🎯 Punkte`:`${ptsChange} 🎯 Punkte`);
+    const strStr = strChange===0?'':(strChange>0?`+${strChange} ⭐ Sterne`:`${strChange} ⭐ Sterne`);
+    const changes = [ptsStr,strStr].filter(Boolean).join(', ')||'keine Änderung';
+    const newTotalEver = Math.max(oldTotalEver||0, pts);
     const doc = await db.collection('users').doc(uid).get();
     const userData = doc.exists ? doc.data() : {};
     try {
         await db.collection('users').doc(uid).set({ points:pts, stars:str, totalPointsEver:newTotalEver }, { merge: true });
         await db.collection('leaderboard').doc(uid).set({ name, stars:str, points:pts, equipped:userData.equipped||{}, inventory:userData.inventory||[] }, { merge: true });
-        if (currentUser?.uid === uid || currentUser?.name === name) {
-            currentUser.points=pts;
-            currentUser.stars=str;
-            currentUser.totalPointsEver=newTotalEver;
-            updateHUD();
-            checkAutoUnlock();
-            buildGamesGrid();
+        if (currentUser?.uid===uid||currentUser?.name===name) {
+            currentUser.points=pts; currentUser.stars=str; currentUser.totalPointsEver=newTotalEver;
+            updateHUD(); checkAutoUnlock(false); buildGamesGrid();
         }
         addLeiterNotification(`"${name}": ${changes} (neu: ${pts} 🎯 / ${str} ⭐)`);
         if (btn) { const o=btn.textContent; btn.textContent='✅'; btn.style.background='var(--green)'; btn.style.color='#000'; setTimeout(()=>{btn.textContent=o;btn.style.background='';btn.style.color='';},1500); }
@@ -4323,7 +4303,7 @@ async function leiterUnlockForUser(gameId) {
     const sel = document.getElementById('ltr_sel_'+gameId);
     const uid = sel?.value; if (!uid) { alert('Spieler wählen!'); return; }
     const selOpt = sel.options[sel.selectedIndex];
-    const name = selOpt ? decodeURIComponent(selOpt.dataset.name || selOpt.text.replace(' ✅','')) : uid;
+    const name = selOpt ? decodeURIComponent(selOpt.dataset.name||selOpt.text.replace(' ✅','')) : uid;
     const doc = await db.collection('users').doc(uid).get();
     if (!doc.exists) { alert('Spieler nicht gefunden!'); return; }
     const userData = doc.data();
@@ -4332,7 +4312,7 @@ async function leiterUnlockForUser(gameId) {
     unlocked.push(gameId); adminUnlocked.push(gameId);
     try {
         await db.collection('users').doc(uid).set({unlocked, adminUnlocked}, { merge: true });
-        if (currentUser?.uid === uid || currentUser?.name === name) { currentUser.unlocked=unlocked; buildGamesGrid(); }
+        if (currentUser?.uid===uid||currentUser?.name===name) { currentUser.unlocked=unlocked; buildGamesGrid(); }
         const g = GAME_LIST.find(x=>x.id===gameId);
         addLeiterNotification(`🔓 ${g?.emoji} ${g?.name} für "${name}" freigeschaltet`);
         loadLeiterPage();
@@ -4343,7 +4323,7 @@ async function leiterLockForUser(gameId) {
     const sel = document.getElementById('ltr_sel_'+gameId);
     const uid = sel?.value; if (!uid) { alert('Spieler wählen!'); return; }
     const selOpt = sel.options[sel.selectedIndex];
-    const name = selOpt ? decodeURIComponent(selOpt.dataset.name || selOpt.text.replace(' ✅','')) : uid;
+    const name = selOpt ? decodeURIComponent(selOpt.dataset.name||selOpt.text.replace(' ✅','')) : uid;
     const doc = await db.collection('users').doc(uid).get();
     if (!doc.exists) { alert('Spieler nicht gefunden!'); return; }
     const userData = doc.data();
@@ -4351,7 +4331,7 @@ async function leiterLockForUser(gameId) {
     const adminUnlocked = (userData.adminUnlocked||[]).filter(id=>id!==gameId);
     try {
         await db.collection('users').doc(uid).set({unlocked, adminUnlocked}, { merge: true });
-        if (currentUser?.uid === uid || currentUser?.name === name) { currentUser.unlocked=unlocked; buildGamesGrid(); }
+        if (currentUser?.uid===uid||currentUser?.name===name) { currentUser.unlocked=unlocked; buildGamesGrid(); }
         const g = GAME_LIST.find(x=>x.id===gameId);
         addLeiterNotification(`🔒 ${g?.emoji} ${g?.name} für "${name}" gesperrt`);
         loadLeiterPage();
@@ -4381,27 +4361,20 @@ function adminCopyCode(code) {
 }
  
 async function adminSaveUser(name) {
-    // Fallback: lookup uid by name then save
     await waitForDb();
     const snap = await db.collection('users').where('name','==',name).limit(1).get();
     if (snap.empty) { alert('Spieler nicht gefunden: '+name); return; }
-    const uid = snap.docs[0].id;
-    await adminSaveUserByUid(uid, name, null, null);
+    await adminSaveUserByUid(snap.docs[0].id, name, null, null);
 }
-
 async function adminSaveUserById(name, safeId, btn) {
-    // Legacy wrapper - look up uid then call uid-based version
     await waitForDb();
     const snap = await db.collection('users').where('name','==',name).limit(1).get();
     if (snap.empty) { alert('Spieler nicht gefunden: '+name); return; }
-    const uid = snap.docs[0].id;
-    await adminSaveUserByUid(uid, name, safeId, btn);
+    await adminSaveUserByUid(snap.docs[0].id, name, safeId, btn);
 }
-
 async function adminSaveUserByUid(uid, name, safeId, btn) {
     await waitForDb();
     if (!uid) { alert('Fehler: keine UID!'); return; }
-    // Read current data directly by uid
     const doc = await db.collection('users').doc(uid).get();
     if (!doc.exists) { alert('Spieler-Dokument nicht gefunden!'); return; }
     const userData = Object.assign({}, doc.data(), { uid });
@@ -4413,35 +4386,25 @@ async function adminSaveUserByUid(uid, name, safeId, btn) {
     const newTotalEver = Math.max(userData.totalPointsEver||0, pts);
     try {
         await db.collection('users').doc(uid).set({ points:pts, stars:str, totalPointsEver:newTotalEver }, { merge: true });
-        await db.collection('leaderboard').doc(uid).set({
-            name: name || userData.name, stars:str, points:pts,
-            equipped:userData.equipped||{}, inventory:userData.inventory||[]
-        }, { merge: true });
-        if (currentUser?.uid === uid || currentUser?.name === (name||userData.name)) {
-            currentUser.points=pts;
-            currentUser.stars=str;
-            currentUser.totalPointsEver=newTotalEver;
-            updateHUD();
-            checkAutoUnlock();
-            buildGamesGrid();
+        await db.collection('leaderboard').doc(uid).set({ name: name||userData.name, stars:str, points:pts, equipped:userData.equipped||{}, inventory:userData.inventory||[] }, { merge: true });
+        if (currentUser?.uid===uid || currentUser?.name===(name||userData.name)) {
+            currentUser.points=pts; currentUser.stars=str; currentUser.totalPointsEver=newTotalEver;
+            updateHUD(); checkAutoUnlock(false); buildGamesGrid();
         }
         if (btn) { const o=btn.textContent; btn.textContent='✅ Gespeichert!'; btn.style.background='var(--green)'; btn.style.color='#000'; setTimeout(()=>{btn.textContent=o;btn.style.background='';btn.style.color='';},1500); }
     } catch(e) { alert('Fehler beim Speichern: '+e.message); }
 }
 
 async function adminDeleteUserByUid(uid, name) {
-    await waitForDb();
     if (!confirm(`Spieler "${name}" wirklich löschen?`)) return;
     try {
         await db.collection('users').doc(uid).delete();
         await db.collection('leaderboard').doc(uid).delete().catch(()=>{});
-        if (currentUser?.uid === uid || currentUser?.name === name) { await logout(); }
+        if (currentUser?.uid===uid || currentUser?.name===name) { await logout(); }
         loadAdminPage();
     } catch(e) { alert('Fehler: '+e.message); }
 }
-
 async function adminDeleteUser(name) {
-    // Fallback by name
     await waitForDb();
     if (!confirm(`Spieler "${name}" wirklich löschen?`)) return;
     const snap = await db.collection('users').where('name','==',name).limit(1).get();
@@ -4450,7 +4413,7 @@ async function adminDeleteUser(name) {
     try {
         await db.collection('users').doc(uid).delete();
         await db.collection('leaderboard').doc(uid).delete().catch(()=>{});
-        if (currentUser?.uid === uid || currentUser?.name === name) { await logout(); }
+        if (currentUser?.uid===uid || currentUser?.name===name) { await logout(); }
         loadAdminPage();
     } catch(e) { alert('Fehler: '+e.message); }
 }
@@ -4458,15 +4421,13 @@ async function adminDeleteUser(name) {
 async function adminUnlockForUser(gameId) {
     await waitForDb();
     const sel = document.getElementById('unlock_sel_'+gameId);
-    const uid = sel?.value;
-    if (!uid) { alert('Bitte Spieler wählen!'); return; }
+    const uid = sel?.value; if (!uid) { alert('Bitte Spieler wählen!'); return; }
     const selOpt = sel.options[sel.selectedIndex];
-    const name = selOpt ? decodeURIComponent(selOpt.dataset.name || selOpt.text.replace(' ✅','')) : uid;
+    const name = selOpt ? decodeURIComponent(selOpt.dataset.name||selOpt.text.replace(' ✅','')) : uid;
     const doc = await db.collection('users').doc(uid).get();
     if (!doc.exists) { alert('Spieler nicht gefunden!'); return; }
     const userData = doc.data();
-    const unlocked = userData.unlocked||[];
-    const adminUnlocked = userData.adminUnlocked||[];
+    const unlocked = userData.unlocked||[]; const adminUnlocked = userData.adminUnlocked||[];
     if (unlocked.includes(gameId)) { alert('Bereits freigeschaltet!'); return; }
     unlocked.push(gameId); adminUnlocked.push(gameId);
     try {
@@ -4481,10 +4442,9 @@ async function adminUnlockForUser(gameId) {
 async function adminLockForUser(gameId) {
     await waitForDb();
     const sel = document.getElementById('unlock_sel_'+gameId);
-    const uid = sel?.value;
-    if (!uid) { alert('Bitte Spieler wählen!'); return; }
+    const uid = sel?.value; if (!uid) { alert('Bitte Spieler wählen!'); return; }
     const selOpt = sel.options[sel.selectedIndex];
-    const name = selOpt ? decodeURIComponent(selOpt.dataset.name || selOpt.text.replace(' ✅','')) : uid;
+    const name = selOpt ? decodeURIComponent(selOpt.dataset.name||selOpt.text.replace(' ✅','')) : uid;
     const doc = await db.collection('users').doc(uid).get();
     if (!doc.exists) { alert('Spieler nicht gefunden!'); return; }
     const userData = doc.data();
