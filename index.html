@@ -765,7 +765,7 @@ async function saveUser() {
         if (document.getElementById('leaderboardPage')?.classList.contains('active')) {
             loadLeaderboard();
         }
-    } catch(e) { console.error('saveUser error:', e); alert('Fehler beim Speichern: ' + e.message); }
+    } catch(e) { console.error('saveUser error:', e); }
 }
 
 async function loadUserFromFirestore(uid) {
@@ -1125,7 +1125,7 @@ function retryGame() {
     startGame(currentGame);
 }
  
-async function showGameOver(score) {
+function showGameOver(score) {
     if (gameLoop) { cancelAnimationFrame(gameLoop); gameLoop = null; }
     // Per-game normalization: average round = ~50 pts, max = 100
     // Formula: ptsEarned = clamp(floor(score / divisor), minPts, maxPts)
@@ -1167,8 +1167,8 @@ async function showGameOver(score) {
         // totalPointsEver accumulates all points ever earned through gameplay (never decreases)
         if (currentUser.totalPointsEver === undefined) currentUser.totalPointsEver = 0;
         currentUser.totalPointsEver = (currentUser.totalPointsEver || 0) + ptsEarned;
-        await saveUser();
-        await checkAutoUnlock(); // auto-unlock games when points threshold reached
+        saveUser(); // fire-and-forget: runs in background, merge:true prevents data loss
+        checkAutoUnlock(); // auto-unlock games when points threshold reached
         pushLeaderboard();
         updateHUD();
     }
