@@ -1037,6 +1037,11 @@ const PAGES = ['main','stats','leaderboard','casino','tauschen','shop','info','c
 function showPage(name) {
     if (gameLoop) { cancelAnimationFrame(gameLoop); gameLoop = null; }
     document.onkeydown = null; document.onkeyup = null;
+    // Remove stop buttons if present
+    const bubbleStopBtn = document.getElementById('bubbleStopBtn');
+    if (bubbleStopBtn) bubbleStopBtn.remove();
+    const towerStopBtn = document.getElementById('towerStopBtn');
+    if (towerStopBtn) towerStopBtn.remove();
     // Clean up custom game containers
     ['ms-container','mem-container','typ-container','quiz-container','wl-container'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
     // Stop typing timer if running
@@ -4449,6 +4454,17 @@ function initTowerDefenseGame() {
     document.getElementById('gameInstructions').innerHTML = '<p>Klick = Turm bauen | <kbd>1</kbd> Kanone <kbd>2</kbd> Laser <kbd>3</kbd> Rakete <kbd>4</kbd> Eis</p>';
     document.getElementById('currentHighScore').textContent = getHighScore('towerdefense');
     canvas.style.display='block'; canvas.width=700; canvas.height=560;
+
+    // Stop button
+    let stopBtn = document.getElementById('towerStopBtn');
+    if (!stopBtn) {
+        stopBtn = document.createElement('button');
+        stopBtn.id = 'towerStopBtn';
+        stopBtn.textContent = '⏹️ Stopp & Punkte kassieren';
+        stopBtn.style.cssText = 'display:block;margin:10px auto 0;padding:10px 24px;background:linear-gradient(45deg,#ff4444,#ff8800);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;';
+        canvas.parentNode.insertBefore(stopBtn, canvas.nextSibling);
+    }
+    stopBtn.onclick = () => { if (!isGameOver) { isGameOver = true; showGameOver(score); } };
     const COLS=14,ROWS=10,CS=50;
     const PATH=[{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:3,y:0},{x:3,y:1},{x:3,y:2},{x:3,y:3},{x:4,y:3},{x:5,y:3},{x:6,y:3},{x:7,y:3},{x:7,y:4},{x:7,y:5},{x:7,y:6},{x:8,y:6},{x:9,y:6},{x:10,y:6},{x:10,y:5},{x:10,y:4},{x:10,y:3},{x:10,y:2},{x:11,y:2},{x:12,y:2},{x:13,y:2}];
     const pathSet=new Set(PATH.map(p=>p.x+','+p.y));
@@ -4646,11 +4662,9 @@ function initTowerDefenseGame() {
         gold-=tt.cost;towers.push({x:col,y:row,cx:col*CS+CS/2,cy:row*CS+CS/2,type:selType,cd:0});
     };
     document.onkeydown=e=>{if(currentGame!=='towerdefense')return;['1','2','3','4'].forEach((k,i)=>{if(e.key===k)selType=i;});};
-    function gameLoopFn(){update();draw();if(!isGameOver)gameLoop=requestAnimationFrame(gameLoopFn);}
+    function gameLoopFn(){update();draw();if(!isGameOver)gameLoop=requestAnimationFrame(gameLoopFn);else{const b=document.getElementById('towerStopBtn');if(b)b.remove();}}
     gameLoopFn();
 }
-
-// ==================== CAR RACING ====================
 function initCarRacingGame() {
     document.getElementById('currentGameTitle').textContent = '🚗 Car Racing';
     document.getElementById('gameInstructions').innerHTML = '<p><kbd>←→</kbd> / <kbd>AD</kbd> steuern | Sterne sammeln für Boost!</p>';
@@ -4811,6 +4825,18 @@ function initBubbleShooterGame() {
     document.getElementById('gameInstructions').innerHTML = '<p>Maus zum Zielen, Klicken zum Schiessen | 3+ gleiche Farben = platzen!</p>';
     document.getElementById('currentHighScore').textContent = getHighScore('bubbleshooter');
     canvas.style.display='block'; canvas.width=420; canvas.height=580;
+
+    // Add stop button
+    let stopBtn = document.getElementById('bubbleStopBtn');
+    if (!stopBtn) {
+        stopBtn = document.createElement('button');
+        stopBtn.id = 'bubbleStopBtn';
+        stopBtn.textContent = '⏹️ Stopp & Punkte kassieren';
+        stopBtn.style.cssText = 'display:block;margin:10px auto 0;padding:10px 24px;background:linear-gradient(45deg,#ff4444,#ff8800);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;';
+        canvas.parentNode.insertBefore(stopBtn, canvas.nextSibling);
+    }
+    stopBtn.onclick = () => { if (!isGameOver) { isGameOver = true; showGameOver(score); } };
+
     const R=20,COLS=11,ROWS=14;
     const COLORS=['#ff4444','#4488ff','#00cc44','#ffcc00','#cc44ff','#ff8800','#00cccc'];
     function rndC(){return COLORS[Math.floor(Math.random()*6)];}
@@ -4852,14 +4878,12 @@ function initBubbleShooterGame() {
             combo++;const pts=matches.length*10*(1+Math.floor(combo/3));score+=pts;
             document.getElementById('currentScore').textContent=score;
             matches.forEach(m=>{createParticles(getX(m.r,m.c),getY(m.r,m.c),grid[m.r][m.c].color,8);grid[m.r][m.c]=null;});
-            // Drop floating
             const floating=findFloating();
             floating.forEach(m=>{createParticles(getX(m.r,m.c),getY(m.r,m.c),'#ffd700',5);score+=15;grid[m.r][m.c]=null;});
             document.getElementById('currentScore').textContent=score;
         } else {combo=0;}
         bullet=null;
-        // Check lose
-        for(let c=0;c<COLS;c++)if(grid[ROWS-2]&&grid[ROWS-2][c]){isGameOver=true;showGameOver(score);return;}
+        for(let c=0;c<COLS;c++)if(grid[ROWS-2]&&grid[ROWS-2][c]){isGameOver=true;if(stopBtn)stopBtn.remove();showGameOver(score);return;}
     }
     function shoot(){
         if(bullet)return;
@@ -4879,7 +4903,6 @@ function initBubbleShooterGame() {
             if(grid[r]&&grid[r][c]&&Math.hypot(bullet.x-getX(r,c),bullet.y-getY(r))<R*1.82){snap(bullet.x,bullet.y);return;}
         }
         if(bullet.y>canvas.height+R)bullet=null;
-        // Particles
         for(let i=particles.length-1;i>=0;i--){
             particles[i].x+=particles[i].vx;particles[i].y+=particles[i].vy;
             particles[i].vx*=0.9;particles[i].vy+=0.2;
@@ -4890,16 +4913,13 @@ function initBubbleShooterGame() {
         const bg=ctx.createLinearGradient(0,0,0,canvas.height);
         bg.addColorStop(0,'#0a0a2e');bg.addColorStop(1,'#1a0a3e');
         ctx.fillStyle=bg;ctx.fillRect(0,0,canvas.width,canvas.height);
-        // Stars bg
         ctx.fillStyle='rgba(255,255,255,0.3)';
         for(let i=0;i<30;i++){ctx.beginPath();ctx.arc((i*137)%canvas.width,(i*97)%300,1,0,Math.PI*2);ctx.fill();}
-        // Danger zone line
         const dangerY=canvas.height-80;
         ctx.strokeStyle='rgba(255,0,0,0.4)';ctx.lineWidth=2;ctx.setLineDash([8,8]);
         ctx.beginPath();ctx.moveTo(0,dangerY);ctx.lineTo(canvas.width,dangerY);ctx.stroke();
         ctx.setLineDash([]);
         ctx.fillStyle='rgba(255,0,0,0.15)';ctx.fillRect(0,dangerY,canvas.width,canvas.height-dangerY);
-        // Bubbles
         for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
             if(grid[r]&&grid[r][c]){
                 const bx=getX(r,c),by=getY(r);
@@ -4909,27 +4929,22 @@ function initBubbleShooterGame() {
                 ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;ctx.stroke();
             }
         }
-        // Aim line with dots
         ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1;ctx.setLineDash([6,8]);
         ctx.beginPath();ctx.moveTo(shooter.x,shooter.y);
         let ax=shooter.x,ay=shooter.y,avx=Math.cos(shooter.angle)*8,avy=Math.sin(shooter.angle)*8;
         for(let i=0;i<15;i++){ax+=avx;ay+=avy;if(ax<R){ax=R;avx*=-1;}if(ax>canvas.width-R){ax=canvas.width-R;avx*=-1;}if(ay<0)break;ctx.lineTo(ax,ay);}
         ctx.stroke();ctx.setLineDash([]);
-        // Shooter
         const sg=ctx.createRadialGradient(shooter.x-5,shooter.y-5,2,shooter.x,shooter.y,R);
         sg.addColorStop(0,'#fff');sg.addColorStop(0.3,shooter.color);sg.addColorStop(1,shooter.color+'88');
         ctx.fillStyle=sg;ctx.beginPath();ctx.arc(shooter.x,shooter.y,R-1,0,Math.PI*2);ctx.fill();
         ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=2;ctx.stroke();
-        // Bullet
         if(bullet){
             const bg2=ctx.createRadialGradient(bullet.x-4,bullet.y-4,2,bullet.x,bullet.y,R);
             bg2.addColorStop(0,'#fff');bg2.addColorStop(0.4,bullet.color);bg2.addColorStop(1,bullet.color+'88');
             ctx.fillStyle=bg2;ctx.beginPath();ctx.arc(bullet.x,bullet.y,R-1,0,Math.PI*2);ctx.fill();
         }
-        // Particles
         particles.forEach(p=>{ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();});
         ctx.globalAlpha=1;
-        // HUD
         ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,0,canvas.width,28);
         ctx.fillStyle='#fff';ctx.font='bold 13px Arial';ctx.textAlign='left';ctx.fillText('Score: '+score,8,19);
         if(combo>1){ctx.fillStyle='#ffd700';ctx.textAlign='center';ctx.fillText('🔥 x'+combo+' COMBO!',canvas.width/2,19);}
@@ -4942,7 +4957,11 @@ function initBubbleShooterGame() {
     canvas.onmousemove=e=>{const r=canvas.getBoundingClientRect();const mx=(e.clientX-r.left)*(canvas.width/r.width);const my=(e.clientY-r.top)*(canvas.height/r.height);const dx=mx-shooter.x,dy=my-shooter.y;shooter.angle=Math.atan2(dy,dx);if(shooter.angle>-0.15)shooter.angle=-0.15;if(shooter.angle<-Math.PI+0.15)shooter.angle=-Math.PI+0.15;};
     canvas.onclick=()=>shoot();
     document.onkeydown=e=>{if(currentGame!=='bubbleshooter')return;if(e.code==='Space'){e.preventDefault();shoot();}};
-    function gameLoopFn(){update();draw();if(!isGameOver)gameLoop=requestAnimationFrame(gameLoopFn);}
+    function gameLoopFn(){
+        update();draw();
+        if(!isGameOver) gameLoop=requestAnimationFrame(gameLoopFn);
+        else if(stopBtn) stopBtn.remove();
+    }
     gameLoopFn();
 }
 
