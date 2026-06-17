@@ -753,19 +753,19 @@ async function saveUser() {
     try {
         const data = Object.assign({}, currentUser);
         const uid = data.uid; delete data.uid;
-        await db.collection('users').doc(uid).set(data);
+        await db.collection('users').doc(uid).set(data, { merge: true });
         await db.collection('leaderboard').doc(uid).set({
             name: currentUser.name,
             stars: currentUser.stars||0,
             points: currentUser.points||0,
             equipped: currentUser.equipped||{},
             inventory: currentUser.inventory||[],
-        }); // no merge so leaderboard stays in sync with users
+        }, { merge: true });
         // If leaderboard page is currently open, refresh it live
         if (document.getElementById('leaderboardPage')?.classList.contains('active')) {
             loadLeaderboard();
         }
-    } catch(e) { console.error('saveUser:', e); }
+    } catch(e) { console.error('saveUser error:', e); alert('Fehler beim Speichern: ' + e.message); }
 }
 
 async function loadUserFromFirestore(uid) {
@@ -1125,7 +1125,7 @@ function retryGame() {
     startGame(currentGame);
 }
  
-function showGameOver(score) {
+async function showGameOver(score) {
     if (gameLoop) { cancelAnimationFrame(gameLoop); gameLoop = null; }
     // Per-game normalization: average round = ~50 pts, max = 100
     // Formula: ptsEarned = clamp(floor(score / divisor), minPts, maxPts)
@@ -1167,8 +1167,8 @@ function showGameOver(score) {
         // totalPointsEver accumulates all points ever earned through gameplay (never decreases)
         if (currentUser.totalPointsEver === undefined) currentUser.totalPointsEver = 0;
         currentUser.totalPointsEver = (currentUser.totalPointsEver || 0) + ptsEarned;
-        saveUser();
-        checkAutoUnlock(); // auto-unlock games when points threshold reached
+        await saveUser();
+        await checkAutoUnlock(); // auto-unlock games when points threshold reached
         pushLeaderboard();
         updateHUD();
     }
