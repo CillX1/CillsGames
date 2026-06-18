@@ -4469,27 +4469,27 @@ function initTowerDefenseGame() {
     const PATH=[{x:0,y:0},{x:1,y:0},{x:2,y:0},{x:3,y:0},{x:3,y:1},{x:3,y:2},{x:3,y:3},{x:4,y:3},{x:5,y:3},{x:6,y:3},{x:7,y:3},{x:7,y:4},{x:7,y:5},{x:7,y:6},{x:8,y:6},{x:9,y:6},{x:10,y:6},{x:10,y:5},{x:10,y:4},{x:10,y:3},{x:10,y:2},{x:11,y:2},{x:12,y:2},{x:13,y:2}];
     const pathSet=new Set(PATH.map(p=>p.x+','+p.y));
     const TT=[
-        {name:'Kanone', color:'#00d4ff', cost:60,  dmg:15,  range:2.2, rate:55,  icon:'💣', splash:0},
-        {name:'Laser',  color:'#00ff88', cost:120, dmg:8,   range:1.8, rate:12,  icon:'⚡', splash:0},
-        {name:'Rakete', color:'#ff006e', cost:200, dmg:60,  range:3,   rate:150, icon:'🚀', splash:1},
-        {name:'Eis',    color:'#88ccff', cost:150, dmg:5,   range:2,   rate:80,  icon:'❄️', splash:0, slow:true},
+        {name:'Kanone', color:'#00d4ff', cost:100, dmg:12,  range:2.0, rate:70,  icon:'💣', splash:0},
+        {name:'Laser',  color:'#00ff88', cost:180, dmg:6,   range:1.6, rate:15,  icon:'⚡', splash:0},
+        {name:'Rakete', color:'#ff006e', cost:320, dmg:45,  range:2.8, rate:180, icon:'🚀', splash:1},
+        {name:'Eis',    color:'#88ccff', cost:220, dmg:3,   range:1.8, rate:90,  icon:'❄️', splash:0, slow:true},
     ];
-    let towers=[],enemies=[],projs=[],particles=[],score=0,lives=25,gold=200,wave=0,isGameOver=false,selType=0,wTimer=0,wActive=false,eLeft=0,totalWaves=0;
+    let towers=[],enemies=[],projs=[],particles=[],score=0,lives=10,gold=80,wave=0,isGameOver=false,selType=0,wTimer=0,wActive=false,eLeft=0,totalWaves=0;
 
     function spawnWave(){
         wave++;totalWaves++;
-        const isBoss=wave%5===0;
-        eLeft=isBoss?1:6+wave*3;
+        const isBoss=wave%4===0;
+        eLeft=isBoss?1:8+wave*4;
         wActive=true;wTimer=0;
     }
 
     function spawnEnemy(){
-        const isBoss=wave%5===0&&eLeft===1;
-        const hp=isBoss?(200+wave*100):(20+wave*18);
+        const isBoss=wave%4===0&&eLeft===1;
+        const hp=isBoss?(400+wave*180):(30+wave*28);
         enemies.push({
             pathIdx:0,x:PATH[0].x*CS+CS/2,y:PATH[0].y*CS+CS/2,
-            hp,maxHp:hp,spd:isBoss?0.5:0.7+wave*0.08,
-            reward:isBoss?(50+wave*20):(12+wave*3),
+            hp,maxHp:hp,spd:isBoss?0.8:1.1+wave*0.12,
+            reward:isBoss?(30+wave*10):(8+wave*2),
             isBoss,slow:0,trail:[]
         });
     }
@@ -4504,9 +4504,9 @@ function initTowerDefenseGame() {
     function update(){
         if(isGameOver)return;
         wTimer++;
-        if(!wActive&&wTimer>150)spawnWave();
-        if(wActive&&eLeft>0&&wTimer%Math.max(15,50-wave*2)===0){spawnEnemy();eLeft--;}
-        if(wActive&&eLeft===0&&enemies.length===0){wActive=false;wTimer=0;score+=wave*100;gold+=30+wave*10;}
+        if(!wActive&&wTimer>80)spawnWave();
+        if(wActive&&eLeft>0&&wTimer%Math.max(8,40-wave*2)===0){spawnEnemy();eLeft--;}
+        if(wActive&&eLeft===0&&enemies.length===0){wActive=false;wTimer=0;score+=wave*50;gold+=15+wave*5;}
 
         enemies.forEach(e=>{
             e.trail.push({x:e.x,y:e.y});if(e.trail.length>8)e.trail.shift();
