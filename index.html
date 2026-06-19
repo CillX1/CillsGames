@@ -3025,7 +3025,7 @@ function initAsteroidsGame() {
 // ==================== TETRIS ====================
 function initTetrisGame() {
     document.getElementById('currentGameTitle').textContent = '🧩 Tetris';
-    document.getElementById('gameInstructions').innerHTML = '<p><kbd>←→</kbd> / <kbd>AD</kbd> Bewegen &nbsp;|&nbsp; <kbd>↑</kbd> / <kbd>W</kbd> Drehen &nbsp;|&nbsp; <kbd>↓</kbd> / <kbd>S</kbd> Schnell</p>';
+    document.getElementById('gameInstructions').innerHTML = '<p><kbd>←→</kbd> / <kbd>AD</kbd> Bewegen &nbsp;|&nbsp; <kbd>↑</kbd> / <kbd>W</kbd> Drehen &nbsp;|&nbsp; <kbd>↓</kbd> / <kbd>S</kbd> Schnell &nbsp;|&nbsp; <kbd>SPACE</kbd> Sofort fallen</p>';
     document.getElementById('currentHighScore').textContent = getHighScore('tetris');
     canvas.width = 300; canvas.height = 600;
     const COLS = 10, ROWS = 20, CS = 30;
@@ -3041,7 +3041,7 @@ function initTetrisGame() {
     ];
     let board = Array.from({length:ROWS},()=>Array(COLS).fill(null));
     let score = 0, isGameOver = false, dropTimer = 0, dropInterval = 40;
-    let current, keys = {};
+    let current, next, keys = {};
 
     function randomPiece() {
         const i = Math.floor(Math.random()*SHAPES.length);
@@ -3065,11 +3065,21 @@ function initTetrisGame() {
         return true;
     }
 
+    function spawnNext() {
+        current = next || randomPiece();
+        next = randomPiece();
+        // Game Over: neues Teil kann nicht spawnen (Stapel oben angekommen)
+        if(!valid(current.shape, current.x, current.y)) {
+            isGameOver = true;
+            showGameOver(score);
+        }
+    }
+
     function place() {
         for(let y=0;y<current.shape.length;y++) for(let x=0;x<current.shape[y].length;x++) {
             if(!current.shape[y][x]) continue;
             const ny = current.y+y;
-            if(ny<0) { isGameOver=true; showGameOver(score); return; }
+            if(ny < 0) { isGameOver=true; showGameOver(score); return; }
             board[ny][current.x+x] = current.color;
         }
         let cleared = 0;
@@ -3079,16 +3089,23 @@ function initTetrisGame() {
         score += [0,100,300,500,800][cleared] || 0;
         document.getElementById('currentScore').textContent = score;
         dropInterval = Math.max(8, 40 - Math.floor(score/300)*3);
-        current = randomPiece();
+        spawnNext();
     }
 
-    current = randomPiece();
+    function hardDrop() {
+        while(valid(current.shape, current.x, current.y+1)) current.y++;
+        place();
+    }
+
+    next = randomPiece();
+    spawnNext();
 
     function update() {
         if(isGameOver) return;
         if(keys['ArrowLeft']||keys['KeyA']) { if(valid(current.shape,current.x-1,current.y)) current.x--; keys['ArrowLeft']=keys['KeyA']=false; }
         if(keys['ArrowRight']||keys['KeyD']) { if(valid(current.shape,current.x+1,current.y)) current.x++; keys['ArrowRight']=keys['KeyD']=false; }
         if(keys['ArrowUp']||keys['KeyW']) { const r=rotate(current.shape); if(valid(r,current.x,current.y)) current.shape=r; keys['ArrowUp']=keys['KeyW']=false; }
+        if(keys['Space']) { hardDrop(); keys['Space']=false; return; }
         const fast = keys['ArrowDown']||keys['KeyS'];
         dropTimer++;
         if(dropTimer >= (fast?2:dropInterval)) {
@@ -3109,16 +3126,22 @@ function initTetrisGame() {
             ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.fillRect(c*CS+1,r*CS+1,CS-2,4);
         }
         // Ghost
-        let gy=current.y;
-        while(valid(current.shape,current.x,gy+1)) gy++;
-        current.shape.forEach((row,y)=>row.forEach((v,x)=>{ if(!v) return;
-            ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.fillRect((current.x+x)*CS+1,(gy+y)*CS+1,CS-2,CS-2);
-        }));
-        // Current piece
-        current.shape.forEach((row,y)=>row.forEach((v,x)=>{ if(!v) return;
-            ctx.fillStyle=current.color; ctx.fillRect((current.x+x)*CS+1,(current.y+y)*CS+1,CS-2,CS-2);
-            ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.fillRect((current.x+x)*CS+1,(current.y+y)*CS+1,CS-2,4);
-        }));
+        if(current) {
+            let gy=current.y;
+            while(valid(current.shape,current.x,gy+1)) gy++;
+            current.shape.forEach((row,y)=>row.forEach((v,x)=>{ if(!v) return;
+                ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.fillRect((current.x+x)*CS+1,(gy+y)*CS+1,CS-2,CS-2);
+            }));
+            // Current piece
+            current.shape.forEach((row,y)=>row.forEach((v,x)=>{ if(!v) return;
+                ctx.fillStyle=current.color; ctx.fillRect((current.x+x)*CS+1,(current.y+y)*CS+1,CS-2,CS-2);
+                ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.fillRect((current.x+x)*CS+1,(current.y+y)*CS+1,CS-2,4);
+            }));
+        }
+        // Danger zone line (oberste Reihe markieren)
+        ctx.strokeStyle='rgba(255,68,68,0.25)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+        ctx.beginPath(); ctx.moveTo(0,CS); ctx.lineTo(canvas.width,CS); ctx.stroke();
+        ctx.setLineDash([]);
     }
 
     function gameLoopFn() { update(); draw(); if(!isGameOver) gameLoop=requestAnimationFrame(gameLoopFn); }
