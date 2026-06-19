@@ -4976,7 +4976,7 @@ function initWordleGame() {
     if(!wlDiv){wlDiv=document.createElement('div');wlDiv.id='wl-container';wlDiv.style.cssText='display:flex;flex-direction:column;align-items:center;padding:20px;max-width:520px;margin:0 auto;width:100%;';container.appendChild(wlDiv);}
     wlDiv.style.display='flex';
 
-    const WORDS=['APFEL','BAUCH','FEUER','GUTEN','HABEN','IMMER','JETZT','LADEN','MACHT','NACHT','OFFEN','PFERD','SEHEN','TIGER','UNTER','VOGEL','WOCHE','ALLER','DURCH','ERSTE','FRAGE','HEUTE','INSEL','JUNGE','KREIS','LANGE','MITTE','PLATZ','RAUCH','SCHON','TISCH','WENIG','BITTE','DINGE','EINIG','GRUND','HILFE','BUNTE','LICHT','REGEN','STURM','MUSIK','FARBE','BLUME','STERN','TRAUM','SPIEL','BREIT','FROHE','GILDE','HUMPE','JODEL','KNALL','LUEGE','MAGEN','NEBEL','OPFER','PENIS','QUARZ','RIESE','SEELE','TOAST','ULTRA','VISUM','WEISS','XENIA','YAKAR','ZOMBI'];
+    const WORDS=['APFEL','BAUCH','FEUER','GUTEN','HABEN','IMMER','JETZT','LADEN','MACHT','NACHT','OFFEN','PFERD','SEHEN','TIGER','UNTER','VOGEL','WOCHE','ALLER','DURCH','ERSTE','FRAGE','HEUTE','INSEL','JUNGE','KREIS','LANGE','MITTE','PLATZ','RAUCH','SCHON','TISCH','WENIG','BITTE','DINGE','EINIG','GRUND','HILFE','BUNTE','LICHT','REGEN','STURM','MUSIK','FARBE','BLUME','STERN','TRAUM','SPIEL','BREIT','FROHE','GILDE','KNALL','MAGEN','NEBEL','OPFER','QUARZ','RIESE','SEELE','TOAST','ULTRA','WEISS','ZOMBI','BRAND','ESSEN','FLORA','GLANZ','HERBST','IDEEN','KARTE','LAGER','MOTIV','NATUR','ORDEN','PREIS','QUITE','RUFER','SAHNE','TACKE','UMWEG','VATER','WAHRE','ZIELE','ABEND','BEERE','CREME','DIGEL','ENGEL','FISCH','GARDE','HUETE','IGELU','JACKE','KAMPF','LERNT','MESSER','NIXIE','OLDIE','PUMPE','QUELL','RESTE','SALAT','TURBO','UNSER','VIELE','WARTE','YACHT','ZONEN','ALARM','BLOCK','CHAOS','DELTA','EMPTY','FALLS','GAMER','HOLDS','INTRO','JOKER','KNABE','LIEBE','MORAL','NOTER','OASIS','PROBE','QUEST','ROHRE','SPORT','THEMA','UMBAU','VERSE','WILDE','XEROX','ZIRKA','ACHSE','BOMME','CLUBS','DEPOT','EIFER','FUNKE','GRIFF','HAFEN','IMPRO','JUDGE','KOHLE','LUCHS','MARKE','NIXUS','OZEANE','PAKET','RADIO','SAUCE','TAFEL','UBOOT','VOKALE','WANZE','ZOPFE','ANGEL','BERGE','CLOWN','DIENST','EIMER','FUNKO','GRUBE','HEXEN','IRREN','JANKE','KLUGE','LOCUS','MONAT','NONNE','OCKER','PIANO','RABAT','SCHAF','TORTE','URANS','VIDEO','WAGEN','ZINNE','ABGAS','BIRKE','CURRY','DOLCH','EBENE','FOLIE','GABEL','HARFE','IDIOT','JUPAS','KABEL','LINIE','MIXER','NUDEL','OZEAN','PUSTE','ROLLE','SAUNA','TOWER','UNRAT','VIREN','WIRBT','ZUNFT'];
     const secret=WORDS[Math.floor(Math.random()*WORDS.length)];
     let guesses=[],current='',gameOver=false,score=0,startTime=Date.now(),streak=0;
 
@@ -4998,7 +4998,7 @@ function initWordleGame() {
 
     function submit(){
         if(current.length!==5||gameOver)return;
-        if(!WORDS.includes(current)){shake();return;}
+        // Accept any 5-letter word (no validation against list)
         const result=checkGuess(current);
         guesses.push({word:current,result});
         const won=result.every(r=>r==='correct');
