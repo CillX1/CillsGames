@@ -44,5 +44,5 @@ jobs:
         run: |
           printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
-          npx firebase deploy --only firestore --project cillsgames --non-interactive
+          npx firebase deploy --only firestore --project cillsgames-a6441 --non-interactive
           rm -f "$RUNNER_TEMP/sa.json"
