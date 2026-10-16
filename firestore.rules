@@ -5,6 +5,7 @@ rules_version = '2';
 // Diese Regeln laufen auf den Servern von Google. Sie entscheiden, wer was
 // lesen und schreiben darf – egal was jemand im Browser manipuliert.
 // Alles, was hier nicht ausdrücklich erlaubt ist, ist verboten.
+// Wird bei jeder Änderung automatisch per GitHub Actions nach Firebase deployed.
 // ═══════════════════════════════════════════════════════════════════
 service cloud.firestore {
   match /databases/{database}/documents {
