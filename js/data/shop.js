@@ -26,10 +26,11 @@ export const ITEMS = [
   I('badge_mystery', 'badge', 'Mystery', '🎭', 1600, 'rare'),
   I('badge_ghost', 'badge', 'Geist', '👻', 2000, 'epic'),
   I('badge_galaxy', 'badge', 'Galaxie', '💫', 3000, 'epic'),
-  I('badge_admin', 'badge', 'Admin', '🛡️', 5000, 'legendary'),
   I('badge_godeye', 'badge', 'Gottesauge', '👁️', 8000, 'legendary'),
   I('badge_crown', 'badge', 'VIP-Krone', '👑', 0, 'legendary', { exclusive: true }),
   I('badge_dragon', 'badge', 'Ur-Drache', '🐲', 0, 'legendary', { exclusive: true }),
+  // Rollen-Items: gibt es nur automatisch mit der Rolle (nicht kaufbar, nicht per Gutschein)
+  I('badge_admin', 'badge', 'Admin', '🛡️', 0, 'legendary', { exclusive: true, role: 'admin' }),
   // Titel
   I('title_noob', 'title', 'Noob', '😅', 50, 'common'),
   I('title_afk', 'title', 'AFK', '😴', 100, 'common'),
@@ -45,9 +46,9 @@ export const ITEMS = [
   I('title_starlord', 'title', 'Star Lord', '🌟', 3000, 'epic'),
   I('title_gambler', 'title', 'Gambling Master', '🎰', 3000, 'epic'),
   I('title_king', 'title', 'King', '👑', 4000, 'epic'),
-  I('title_leiter', 'title', 'Leiter', '👔', 4000, 'epic'),
-  I('title_admin', 'title', 'Admin', '🔐', 5000, 'legendary'),
   I('title_immortal', 'title', 'Immortal', '🌌', 10000, 'legendary'),
+  I('title_leiter', 'title', 'Leiter', '👔', 0, 'epic', { exclusive: true, role: 'leiter' }),
+  I('title_admin', 'title', 'Admin', '🔐', 0, 'legendary', { exclusive: true, role: 'admin' }),
   // Namensfarben
   I('color_neon', 'color', 'Neon', '🌈', 150, 'common', { c: ['#00d4ff', '#ff006e', '#00ff88'] }),
   I('color_gold', 'color', 'Gold', '✨', 700, 'rare', { c: ['#ffd700', '#ff8800'] }),
@@ -73,6 +74,17 @@ export const ITEMS = [
 
 export const ITEM_BY_ID = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 export const SHOP_ITEMS = ITEMS.filter((i) => !i.exclusive);
+
+/** Items, die zu einer Rolle gehören. Admins bekommen auch die Leiter-Items nicht automatisch – nur ihre eigenen. */
+export const ROLE_ITEMS = { admin: ['title_admin', 'badge_admin'], leiter: ['title_leiter'] };
+export const ALL_ROLE_ITEM_IDS = ITEMS.filter((i) => i.role).map((i) => i.id);
+
+/** Welche Rollen-Items darf jemand mit dieser Rolle besitzen? (muss zu firestore.rules passen) */
+export function allowedRoleItems(role) {
+  if (role === 'admin') return ['title_admin', 'badge_admin', 'title_leiter'];
+  if (role === 'leiter') return ['title_leiter'];
+  return [];
+}
 
 /** Gibt nur ausgerüstete Items zurück, die es wirklich gibt und (falls Inventar bekannt) im Besitz sind. */
 export function resolveEquipped(equipped, inventory) {

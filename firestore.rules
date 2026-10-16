@@ -25,6 +25,13 @@ service cloud.firestore {
 
     function nonNeg(v) { return v is number && v >= 0; }
 
+    // Rollen-Items (Admin-/Leiter-Titel) darf nur besitzen bzw. tragen, wer die Rolle wirklich hat.
+    function uidHasRole(uid, roles) { return exists(rolePath(uid)) && get(rolePath(uid)).data.role in roles; }
+    function roleItemsOk(uid, items) {
+      return (!items.hasAny(['title_admin', 'badge_admin']) || uidHasRole(uid, ['admin']))
+          && (!items.hasAny(['title_leiter']) || uidHasRole(uid, ['admin', 'leiter']));
+    }
+
     function userKeys() {
       return ['name', 'email', 'points', 'stars', 'gamesPlayed', 'totalPointsEver', 'highscores', 'unlocked',
               'adminUnlocked', 'inventory', 'equipped', 'usedVouchers', 'lastDaily', 'dailyStreak', 'createdAt'];
@@ -47,6 +54,7 @@ service cloud.firestore {
       let oldTotal = o.get('totalPointsEver', 0);
       return d.diff(o).affectedKeys().hasOnly(userKeys())
         && d.name == o.name                                  // Name ist fest
+        && roleItemsOk(me(), d.get('inventory', []))         // keine falschen Admin-/Leiter-Titel
         && nonNeg(d.points) && nonNeg(d.stars) && nonNeg(d.totalPointsEver) && nonNeg(d.gamesPlayed)
         && d.points - oldPoints <= 30000                     // max. Gewinn pro Speichern (grösster Casino-Gewinn: 25'000)
         && d.totalPointsEver >= oldTotal                     // verdiente Punkte sinken nie
@@ -77,7 +85,8 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['name', 'stars', 'points', 'gamesPlayed', 'topScore', 'equipped', 'inventory'])
         && request.resource.data.name == getAfter(/databases/$(database)/documents/users/$(uid)).data.name
         && request.resource.data.stars == getAfter(/databases/$(database)/documents/users/$(uid)).data.stars
-        && request.resource.data.points == getAfter(/databases/$(database)/documents/users/$(uid)).data.points;
+        && request.resource.data.points == getAfter(/databases/$(database)/documents/users/$(uid)).data.points
+        && roleItemsOk(uid, request.resource.data.get('equipped', {}).values());
       allow delete: if isAdmin();
     }
 

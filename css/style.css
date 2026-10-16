@@ -338,6 +338,8 @@ textarea.input { resize: vertical; min-height: 70px; }
 .lb-name { font-weight: 700; }
 .lb-title { color: var(--gold); font-size: 12px; font-weight: 700; margin-left: 6px; }
 .lb-badge { margin-left: 6px; }
+.lb-title.role-admin, .profile-title.role-admin { color: #ff4d5e; text-shadow: 0 0 10px rgba(255, 77, 94, 0.6); }
+.lb-title.role-leiter, .profile-title.role-leiter { color: #c084fc; text-shadow: 0 0 10px rgba(168, 85, 247, 0.6); }
 .you { color: var(--cyan); font-size: 12px; }
 
 /* ── Profil ── */

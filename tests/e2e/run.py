@@ -291,6 +291,8 @@ with sync_playwright() as p:
 
     print('▶ Shop, Tauschen, Casino')
     page.goto(BASE + '?backend=local#/shop')
+    for rid in ['title_admin', 'badge_admin', 'title_leiter']:
+        assert page.locator(f'[data-buy={rid}]').count() == 0, f'{rid} darf nicht kaufbar sein'
     page.locator('[data-buy=badge_fire]').click(); dialog(page).locator('[data-act=yes]').click()
     page.locator('[data-equip=badge_fire]').wait_for()
     page.locator('[data-equip=badge_fire]').click()
@@ -346,9 +348,11 @@ with sync_playwright() as p:
     page.goto(BASE + '?backend=local#/rangliste'); page.wait_for_selector('.lb-table tbody tr')
     assert page.locator('.lb-table tbody tr').count() == 2
     assert page.locator('.lb-table tbody tr').first.inner_text().find('CillX11') >= 0
+    expect(page.locator('.lb-table tbody tr', has_text='CillX11')).to_contain_text('Admin')
+    expect(page.locator('.lb-table tbody tr', has_text='Tester')).to_contain_text('Leiter')
     page.screenshot(path=str(SHOTS / 'leaderboard.png'))
     page.locator('.lb-table tbody tr').first.click(); page.wait_for_selector('.profile-card')
-    step('Rangliste sortiert, Profil anderer Spieler')
+    step('Rangliste sortiert, Admin-/Leiter-Titel automatisch, Profil anderer Spieler')
     page.goto(BASE + '?backend=local#/einstellungen')
     page.locator('[data-set=sound]').uncheck(); page.locator('[data-set=reduceMotion]').check()
     page.reload(); page.wait_for_selector('.settings')

@@ -1,7 +1,7 @@
 // Zentraler Spielstand. Alle Änderungen an Punkten, Sternen, Items usw. laufen hier durch.
 // Speichern geschieht nacheinander (nie zwei Schreibvorgänge gleichzeitig), damit nichts verloren geht.
 import { GAMES, GAME_BY_ID, pointsForScore } from './data/games.js';
-import { ITEM_BY_ID } from './data/shop.js';
+import { ITEM_BY_ID, ROLE_ITEMS, ALL_ROLE_ITEM_IDS, allowedRoleItems } from './data/shop.js';
 import { todayKey, friendlyError, nameToEmail } from './util.js';
 
 export const STAR_PRICE = 100; // 100 Punkte = 1 Stern
@@ -96,8 +96,29 @@ export async function loadSession(authInfo) {
   pendingName = null;
   state.role = await backend.getRole(authInfo.uid);
   checkAutoUnlock();
-  if (isNew) await save();
+  const roleChanged = syncRoleItems();
+  if (isNew || roleChanged) await save();
   notify();
+}
+
+/**
+ * Rollen-Items (Admin-/Leiter-Titel) passend zur Rolle vergeben bzw. entfernen.
+ * Neue Titel werden automatisch ausgerüstet, wenn noch keiner getragen wird.
+ * Gibt true zurück, wenn sich etwas geändert hat.
+ */
+export function syncRoleItems(u = state.user, role = state.role) {
+  if (!u) return false;
+  const allowed = allowedRoleItems(role);
+  const before = JSON.stringify([u.inventory, u.equipped]);
+  u.inventory = u.inventory.filter((id) => !ALL_ROLE_ITEM_IDS.includes(id) || allowed.includes(id));
+  for (const [slot, id] of Object.entries(u.equipped)) if (!u.inventory.includes(id)) delete u.equipped[slot];
+  for (const id of ROLE_ITEMS[role] || []) {
+    if (u.inventory.includes(id)) continue;
+    u.inventory.push(id);
+    const slot = ITEM_BY_ID[id].slot;
+    if (!u.equipped[slot]) u.equipped[slot] = id;
+  }
+  return JSON.stringify([u.inventory, u.equipped]) !== before;
 }
 
 /** Neu vom Server laden (z. B. nach einem abgelehnten Speichern). */
@@ -263,7 +284,7 @@ export async function redeemVoucher(rawCode) {
   let v;
   try { v = await state.backend.getVoucher(code); } catch (e) { return { ok: false, msg: friendlyError(e) }; }
   const item = v && ITEM_BY_ID[v.item];
-  if (!item) return { ok: false, msg: 'Ungültiger Code.' };
+  if (!item || item.role) return { ok: false, msg: 'Ungültiger Code.' };
   u.usedVouchers.push(code);
   const already = u.inventory.includes(item.id);
   if (!already) u.inventory.push(item.id);
@@ -298,6 +319,7 @@ export async function claimDailyBonus() {
 
 export async function setRoleLocal(role) {
   state.role = role;
+  if (syncRoleItems()) await save();
   notify();
 }
 
@@ -306,6 +328,7 @@ export function applyServerUser(uid, data) {
   if (uid === state.uid && data) {
     state.user = sanitizeUser(data, state.user?.name);
     checkAutoUnlock();
+    syncRoleItems();
     notify();
   }
 }

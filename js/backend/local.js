@@ -2,6 +2,7 @@
 // Wird benutzt, wenn Firebase nicht erreichbar ist (Offline-Modus) und für automatische Tests.
 import { OWNER_USERNAMES } from '../firebase-config.js';
 import { nameToEmail } from '../util.js';
+import { ALL_ROLE_ITEM_IDS, allowedRoleItems } from '../data/shop.js';
 
 const KEY = 'cg_localdb_v1';
 
@@ -99,6 +100,8 @@ export function createLocalBackend(storage = globalThis.localStorage) {
 
     async saveUser(uid, user) {
       if (uid !== me()) throw err('permission-denied');
+      const allowed = allowedRoleItems(roleOf(uid));
+      if ((user.inventory || []).some((id) => ALL_ROLE_ITEM_IDS.includes(id) && !allowed.includes(id))) throw err('permission-denied');
       mem.users[uid] = { ...(mem.users[uid] || {}), ...clone(user) };
       mem.leaderboard[uid] = publicProfile(mem.users[uid]);
       persist();

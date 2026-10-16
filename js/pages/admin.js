@@ -3,7 +3,7 @@
 import * as store from '../store.js';
 import { esc, formatInt, friendlyError, nameToEmail } from '../util.js';
 import { GAMES, GAME_BY_ID } from '../data/games.js';
-import { ITEMS, ITEM_BY_ID } from '../data/shop.js';
+import { ITEMS, ITEM_BY_ID, ALL_ROLE_ITEM_IDS } from '../data/shop.js';
 import { OWNER_USERNAMES } from '../firebase-config.js';
 import { toast, confirmDialog, openDialog } from '../ui.js';
 import { openAuthDialog } from '../auth-ui.js';
@@ -173,6 +173,14 @@ async function usersTab(body, admin) {
         if (u.id === store.getState().uid && r !== 'admin') { toast('Du kannst dir die eigene Admin-Rolle nicht wegnehmen.', 'error'); return; }
         await be().setRole(u.id, r || null, u.name);
         if (r) roleOf[u.id] = r; else delete roleOf[u.id];
+        // Rollen-Titel sofort vergeben/entfernen (auch wenn der Spieler offline ist)
+        const copy = { inventory: [...(u.inventory || [])], equipped: { ...(u.equipped || {}) } };
+        if (store.syncRoleItems(copy, r || null)) {
+          const merged = await be().staffUpdateUser(u.id, copy);
+          Object.assign(u, copy);
+          store.applyServerUser(u.id, merged);
+        }
+        if (u.id === store.getState().uid) await store.setRoleLocal(r || null);
         await log(`Rolle von „${u.name}" → ${r || 'keine'}`);
         toast('✅ Rolle gespeichert', 'success');
         draw(body.querySelector('[data-q]').value);
@@ -230,13 +238,15 @@ function itemsDialog(u) {
   return openDialog({
     title: `🎨 Items von ${esc(u.name)}`,
     wide: true,
-    content: `<p class="muted small">Haken = besitzt das Item. Exklusive Items (👑 VIP-Krone, 🐲 Ur-Drache) gibt es nur so oder per Gutschein.</p>
-      <div class="check-list cols">${ITEMS.map((it) => `<label class="check"><input type="checkbox" value="${it.id}" ${inv.has(it.id) ? 'checked' : ''}> ${it.icon} ${esc(it.name)}</label>`).join('')}</div>
+    content: `<p class="muted small">Haken = besitzt das Item. Exklusive Items (👑 VIP-Krone, 🐲 Ur-Drache) gibt es nur so oder per Gutschein. Admin-/Leiter-Titel kommen automatisch mit der Rolle.</p>
+      <div class="check-list cols">${ITEMS.filter((it) => !it.role).map((it) => `<label class="check"><input type="checkbox" value="${it.id}" ${inv.has(it.id) ? 'checked' : ''}> ${it.icon} ${esc(it.name)}</label>`).join('')}</div>
       <div class="dialog-actions"><button type="button" class="btn btn-primary" data-save>Speichern</button></div>`,
     onOpen(root, close) {
       root.querySelector('[data-save]').onclick = async (e) => {
         e.target.disabled = true;
-        const inventory = [...root.querySelectorAll('input:checked')].map((i) => i.value);
+        // Rollen-Items bleiben unverändert – die hängen an der Rolle, nicht an diesem Dialog
+        const inventory = [...root.querySelectorAll('input:checked')].map((i) => i.value)
+          .concat((u.inventory || []).filter((id) => ALL_ROLE_ITEM_IDS.includes(id)));
         const equipped = Object.fromEntries(Object.entries(u.equipped || {}).filter(([, id]) => inventory.includes(id)));
         try {
           const merged = await be().staffUpdateUser(u.id, { inventory, equipped });
@@ -262,7 +272,7 @@ async function vouchersTab(body) {
       <h2 class="section-title">Neuer Gutschein</h2>
       <form class="row wrap" data-new>
         <input class="input" name="code" placeholder="CODE (A–Z, 0–9, -)" maxlength="40" required>
-        <select class="input" name="item">${ITEMS.map((it) => `<option value="${it.id}">${it.icon} ${esc(it.name)}${it.exclusive ? ' (exklusiv)' : ''}</option>`).join('')}</select>
+        <select class="input" name="item">${ITEMS.filter((it) => !it.role).map((it) => `<option value="${it.id}">${it.icon} ${esc(it.name)}${it.exclusive ? ' (exklusiv)' : ''}</option>`).join('')}</select>
         <button type="button" class="btn btn-ghost" data-random>🎲 Zufall</button>
         <button class="btn btn-primary" type="submit">Erstellen</button>
       </form>

@@ -11,7 +11,7 @@ function card(p, eq) {
   return `<div class="card profile-card">
     <div class="avatar" style="${avatarFrameStyle(eq.frame)}">${eq.badge ? eq.badge.icon : '🎮'}</div>
     <h1 class="profile-name" style="${nameStyle(eq)}">${esc(p.name)}</h1>
-    <div class="profile-title">${eq.title ? `「${esc(eq.title.name)}」` : '&nbsp;'}</div>
+    <div class="profile-title ${eq.title?.role ? 'role-' + eq.title.role : ''}">${eq.title ? `${eq.title.role ? eq.title.icon + ' ' : ''}「${esc(eq.title.name)}」` : '&nbsp;'}</div>
     <div class="profile-stats">
       <div><b>${formatNum(p.points)}</b><span>🎯 Punkte</span></div>
       <div><b>${formatNum(p.stars)}</b><span>⭐ Sterne</span></div>

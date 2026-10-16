@@ -155,3 +155,19 @@ test('Alte Sammlung "config" (Klartext-Passwörter) ist komplett gesperrt', asyn
   await assertFails(getDoc(doc(db(ALICE), 'config/leiter')));
   await assertFails(getDoc(doc(db(LEITER), 'config/leiter')));
 });
+
+test('Admin-/Leiter-Titel nur mit passender Rolle', async () => {
+  await assertFails(saveOwn(ALICE, baseUser('Alice', { points: 1000, totalPointsEver: 1000, inventory: ['title_admin'] })));
+  await assertFails(saveOwn(ALICE, baseUser('Alice', { points: 1000, totalPointsEver: 1000, inventory: ['title_leiter'] })));
+  await assertSucceeds(saveOwn(ALICE, baseUser('Alice', { points: 1000, totalPointsEver: 1000, inventory: ['title_pro'], equipped: { title: 'title_pro' } })));
+  // Leiter darf den Leiter-Titel tragen, aber nicht den Admin-Titel
+  await assertSucceeds(saveOwn(LEITER, baseUser('Leiter', { inventory: ['title_leiter'], equipped: { title: 'title_leiter' } })));
+  await assertFails(saveOwn(LEITER, baseUser('Leiter', { inventory: ['title_leiter', 'badge_admin'] })));
+  // Admin darf beides
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'roles/owner'), { role: 'admin', name: 'CillX11' }));
+  const owner = baseUser('CillX11', { inventory: ['title_admin', 'badge_admin'], equipped: { title: 'title_admin', badge: 'badge_admin' } });
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'users/owner'), baseUser('CillX11')));
+  await assertSucceeds(saveOwn(OWNER, owner));
+  // Rangliste: Admin-Titel tragen ohne Rolle geht nicht
+  await assertFails(setDoc(doc(db(ALICE), 'leaderboard/alice'), { name: 'Alice', stars: 0, points: 1000, gamesPlayed: 0, topScore: 0, equipped: { title: 'title_admin' } }));
+});

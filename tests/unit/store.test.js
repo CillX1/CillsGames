@@ -179,3 +179,54 @@ test('Alte Spielstände werden repariert', () => {
   assert.deepEqual(u.inventory, ['badge_fire']);
   assert.equal('uid' in u, false);
 });
+
+test('Rollen-Titel: nicht kaufbar, automatisch mit der Rolle, verschwinden ohne Rolle', async () => {
+  const { SHOP_ITEMS } = await import('../../js/data/shop.js');
+  for (const id of ['title_admin', 'badge_admin', 'title_leiter']) {
+    assert.ok(!SHOP_ITEMS.some((i) => i.id === id), id + ' darf nicht im Shop sein');
+  }
+  await loginAs('CillX1');
+  store.getState().user.points = 99999;
+  assert.equal((await store.buyItem('title_admin')).ok, false);
+  await backend.claimOwnerAdmin(store.getState().uid, 'CillX1');
+  await store.setRoleLocal('admin');
+  await store.flush();
+  const u = store.user();
+  assert.ok(u.inventory.includes('title_admin') && u.inventory.includes('badge_admin'));
+  assert.equal(u.equipped.title, 'title_admin', 'automatisch ausgerüstet');
+  assert.equal(u.equipped.badge, 'badge_admin');
+  assert.equal((await backend.getPublicProfile(store.getState().uid)).equipped.title, 'title_admin');
+  // Rolle weg -> Titel weg
+  await store.setRoleLocal(null);
+  assert.ok(!store.user().inventory.includes('title_admin'));
+  assert.equal(store.user().equipped.title, undefined);
+});
+
+test('Leiter-Titel und Schummel-Schutz', async () => {
+  await loginAs('Schummler');
+  store.getState().user.inventory.push('title_admin');
+  await assert.rejects(backend.saveUser(store.getState().uid, store.user()), { code: 'permission-denied' });
+  store.syncRoleItems();
+  assert.ok(!store.user().inventory.includes('title_admin'), 'wird ohne Rolle entfernt');
+  // Leiter-Rolle muss wirklich vom Admin vergeben sein
+  const uid = store.getState().uid;
+  await store.setRoleLocal('leiter');
+  await store.flush();
+  assert.deepEqual(store.user().inventory, [], 'ohne echte Rolle lehnt der Server den Titel ab');
+  await backend.logout();
+  await loginAs('CillX11');
+  await backend.claimOwnerAdmin(store.getState().uid, 'CillX11');
+  await backend.setRole(uid, 'leiter', 'Schummler');
+  await backend.logout();
+  await loginAs('Schummler', 'geheim123', false);
+  assert.equal(store.getState().role, 'leiter');
+  assert.deepEqual(store.user().inventory, ['title_leiter']);
+  assert.equal(store.user().equipped.title, 'title_leiter');
+});
+
+test('Eigener Titel wird nicht überschrieben', () => {
+  const u = store.sanitizeUser({ name: 'X', inventory: ['title_pro'], equipped: { title: 'title_pro' } });
+  store.syncRoleItems(u, 'leiter');
+  assert.ok(u.inventory.includes('title_leiter'));
+  assert.equal(u.equipped.title, 'title_pro');
+});
