@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>CillsGames</title>
+  <meta name="description" content="CillsGames – 20 Browser-Spiele, Punkte sammeln, Sterne tauschen und die Rangliste erobern.">
+  <meta name="theme-color" content="#1a1a2e">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta property="og:title" content="CillsGames">
+  <meta property="og:description" content="20 Browser-Spiele, Rangliste, Shop und Casino – kostenlos und ohne Werbung.">
+  <meta property="og:image" content="assets/icon-512.png">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="modulepreload" href="js/main.js">
+</head>
+<body>
+  <a class="skip-link" href="#view">Zum Inhalt springen</a>
+
+  <div id="splash" class="splash" role="status" aria-live="polite">
+    <div class="splash-logo">🎮</div>
+    <div class="splash-name">CillsGames</div>
+    <div class="splash-spinner" aria-label="Lädt"></div>
+    <noscript><p>CillsGames braucht JavaScript. Bitte aktiviere es in deinem Browser.</p></noscript>
+  </div>
+
+  <header class="topbar">
+    <a class="logo" href="#/" aria-label="CillsGames Startseite">CillsGames</a>
+    <nav class="topnav" aria-label="Hauptnavigation">
+      <a href="#/" data-nav>🎮 Spiele</a>
+      <a href="#/rangliste" data-nav>🏆 Rangliste</a>
+      <a href="#/shop" data-nav>🛒 Shop</a>
+      <a href="#/casino" data-nav>🎰 Casino</a>
+    </nav>
+    <div class="topbar-right">
+      <a class="pill" href="#/tauschen" title="Punkte"><span aria-hidden="true">🎯</span><b id="hdrPoints">0</b></a>
+      <a class="pill gold" href="#/tauschen" title="Sterne"><span aria-hidden="true">⭐</span><b id="hdrStars">0</b></a>
+      <button type="button" class="btn btn-ghost btn-small login-btn" id="loginBtn">👤 Login</button>
+      <button type="button" class="hamburger" id="menuBtn" aria-label="Menü öffnen" aria-expanded="false" aria-controls="sideMenu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <div id="offlineBanner" class="offline-banner" hidden>⚠️ Keine Verbindung zu Firebase – Offline-Modus. Spielstände werden nur auf diesem Gerät gespeichert.</div>
+
+  <div id="menuBackdrop" class="menu-backdrop"></div>
+  <aside id="sideMenu" class="side-menu" aria-hidden="true" aria-label="Menü">
+    <button type="button" class="menu-close" id="menuClose" aria-label="Menü schliessen">✕</button>
+    <div class="menu-head">
+      <div class="menu-user" id="menuUser">Nicht eingeloggt</div>
+      <div class="menu-sub" id="menuSub"></div>
+    </div>
+    <nav class="menu-items">
+      <a href="#/" data-nav><span>🏠</span>Spiele</a>
+      <a href="#/profil" data-nav><span>👤</span>Mein Profil & Rekorde</a>
+      <a href="#/rangliste" data-nav><span>🏆</span>Rangliste</a>
+      <a href="#/shop" data-nav><span>🛒</span>Shop</a>
+      <a href="#/casino" data-nav><span>🎰</span>Casino</a>
+      <a href="#/tauschen" data-nav><span>💱</span>Tauschen</a>
+      <hr>
+      <a href="#/info" data-nav><span>ℹ️</span>Infos, Kontakt & Bewertung</a>
+      <a href="#/einstellungen" data-nav><span>⚙️</span>Einstellungen</a>
+      <hr id="staffDivider" hidden>
+      <a href="#/leiter" data-nav id="leiterItem" hidden><span>👔</span>Leiter</a>
+      <a href="#/admin" data-nav id="adminItem" hidden><span>🔐</span>Admin</a>
+      <button type="button" id="logoutItem" hidden><span>🚪</span>Ausloggen</button>
+    </nav>
+  </aside>
+
+  <main id="view" class="view" tabindex="-1"></main>
+
+  <footer class="footer">engineered by <span>Cillian Fontannaz</span> · <a href="https://github.com/CillX1/CillsGames" target="_blank" rel="noopener">Quellcode</a></footer>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

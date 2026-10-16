@@ -1,0 +1,14 @@
+node_modules/
+_site/
+tests/e2e/screenshots/
+*.log
+firebase-debug.log
+firestore-debug.log
+.firebase/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+# Niemals einchecken: Firebase-Dienstkonto-Schlüssel
+*service-account*.json
+sa.json

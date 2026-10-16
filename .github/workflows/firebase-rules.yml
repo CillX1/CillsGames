@@ -1,0 +1,48 @@
+# Spielt firestore.rules automatisch in dein Firebase-Projekt, sobald sie sich auf main ändern.
+# Einmalig nötig: Secret FIREBASE_SERVICE_ACCOUNT anlegen (Anleitung: docs/FIREBASE.md, Schritt 4).
+# Ohne Secret wird dieser Schritt einfach übersprungen.
+name: Firestore-Regeln deployen
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - firestore.rules
+      - firestore.indexes.json
+      - firebase.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-rules:
+    runs-on: ubuntu-latest
+    env:
+      HAS_SECRET: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Hinweis, falls kein Secret
+        if: env.HAS_SECRET != 'true'
+        run: echo "::warning::Kein Secret FIREBASE_SERVICE_ACCOUNT – Regeln wurden NICHT deployed. Siehe docs/FIREBASE.md."
+      - uses: actions/setup-node@v4
+        if: env.HAS_SECRET == 'true'
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        if: env.HAS_SECRET == 'true'
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Regeln zuerst im Emulator testen
+        if: env.HAS_SECRET == 'true'
+        run: npm install --no-audit --no-fund && npm run test:rules
+      - name: Deploy
+        if: env.HAS_SECRET == 'true'
+        env:
+          SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx firebase deploy --only firestore --project cillsgames --non-interactive
+          rm -f "$RUNNER_TEMP/sa.json"

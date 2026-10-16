@@ -1,0 +1,120 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════
+// CillsGames – Firestore-Sicherheitsregeln
+// Diese Regeln laufen auf den Servern von Google. Sie entscheiden, wer was
+// lesen und schreiben darf – egal was jemand im Browser manipuliert.
+// Alles, was hier nicht ausdrücklich erlaubt ist, ist verboten.
+// ═══════════════════════════════════════════════════════════════════
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Hilfsfunktionen ──────────────────────────────────────────
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function rolePath(uid) { return /databases/$(database)/documents/roles/$(uid); }
+    function hasRole() { return signedIn() && exists(rolePath(me())); }
+    function isAdmin() { return hasRole() && get(rolePath(me())).data.role == 'admin'; }
+    function isStaff() { return hasRole() && get(rolePath(me())).data.role in ['admin', 'leiter']; }
+
+    // Besitzer-Konten: dürfen sich selbst die Admin-Rolle geben.
+    // Muss zu OWNER_USERNAMES in js/firebase-config.js passen (Name -> kleingeschrieben @cillsgames.local).
+    function isOwnerAccount() {
+      return signedIn() && request.auth.token.email in ['cillx1@cillsgames.local', 'cillx11@cillsgames.local'];
+    }
+
+    function nonNeg(v) { return v is number && v >= 0; }
+
+    function userKeys() {
+      return ['name', 'email', 'points', 'stars', 'gamesPlayed', 'totalPointsEver', 'highscores', 'unlocked',
+              'adminUnlocked', 'inventory', 'equipped', 'usedVouchers', 'lastDaily', 'dailyStreak', 'createdAt'];
+    }
+
+    // Neuer Spieler startet bei null.
+    function validNewUser(d) {
+      return d.keys().hasOnly(userKeys())
+        && d.name is string && d.name.size() >= 2 && d.name.size() <= 40
+        && d.points == 0 && d.stars == 0 && d.totalPointsEver == 0
+        && d.inventory.size() == 0 && d.adminUnlocked.size() == 0;
+    }
+
+    // Was ein Spieler an seinem eigenen Spielstand ändern darf.
+    function validOwnUpdate() {
+      let d = request.resource.data;
+      let o = resource.data;
+      let oldPoints = o.get('points', 0);
+      let oldStars = o.get('stars', 0);
+      let oldTotal = o.get('totalPointsEver', 0);
+      return d.diff(o).affectedKeys().hasOnly(userKeys())
+        && d.name == o.name                                  // Name ist fest
+        && nonNeg(d.points) && nonNeg(d.stars) && nonNeg(d.totalPointsEver) && nonNeg(d.gamesPlayed)
+        && d.points - oldPoints <= 30000                     // max. Gewinn pro Speichern (grösster Casino-Gewinn: 25'000)
+        && d.totalPointsEver >= oldTotal                     // verdiente Punkte sinken nie
+        && d.totalPointsEver - oldTotal <= 1000              // max. verdiente Punkte pro Speichern
+        && (d.stars <= oldStars                              // Sterne gibt es nur im Tausch: 100 Punkte = 1 Stern
+            || oldPoints - d.points >= (d.stars - oldStars) * 100);
+    }
+
+    // ── Spieler ──────────────────────────────────────────────────
+    match /users/{uid} {
+      allow read: if signedIn() && (me() == uid || isStaff());
+      allow create: if signedIn() && me() == uid && validNewUser(request.resource.data);
+      allow update: if signedIn() && (
+        (me() == uid && validOwnUpdate())
+        || isAdmin()
+        || (isStaff()
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['points', 'stars', 'totalPointsEver', 'unlocked', 'adminUnlocked'])
+            && nonNeg(request.resource.data.points) && nonNeg(request.resource.data.stars))
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ── Rangliste (öffentlich lesbar, muss zum echten Spielstand passen) ──
+    match /leaderboard/{uid} {
+      allow read: if true;
+      allow create, update: if signedIn() && (me() == uid || isStaff())
+        && request.resource.data.keys().hasOnly(['name', 'stars', 'points', 'gamesPlayed', 'topScore', 'equipped', 'inventory'])
+        && request.resource.data.name == getAfter(/databases/$(database)/documents/users/$(uid)).data.name
+        && request.resource.data.stars == getAfter(/databases/$(database)/documents/users/$(uid)).data.stars
+        && request.resource.data.points == getAfter(/databases/$(database)/documents/users/$(uid)).data.points;
+      allow delete: if isAdmin();
+    }
+
+    // ── Rollen (Admin / Leiter) ──────────────────────────────────
+    match /roles/{uid} {
+      allow read: if signedIn() && (me() == uid || isStaff());
+      allow create, update: if (isAdmin() && request.resource.data.role in ['admin', 'leiter'])
+        || (signedIn() && me() == uid && isOwnerAccount() && request.resource.data.role == 'admin');
+      allow delete: if isAdmin() && me() != uid;
+    }
+
+    // ── Feedback ────────────────────────────────────────────────
+    match /feedbacks/{id} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'user', 'rating', 'text', 'ts'])
+        && request.resource.data.uid == me()
+        && request.resource.data.user is string && request.resource.data.user.size() <= 40
+        && request.resource.data.rating is int && request.resource.data.rating >= 1 && request.resource.data.rating <= 5
+        && request.resource.data.text is string && request.resource.data.text.size() <= 500
+        && request.resource.data.ts is number;
+      allow read, delete: if isAdmin();
+    }
+
+    // ── Gutscheine: einzeln abrufbar (wer den Code kennt), aber nicht auflistbar ──
+    match /vouchers/{code} {
+      allow get: if signedIn();
+      allow list: if isAdmin();
+      allow create, update: if isAdmin() && request.resource.data.item is string;
+      allow delete: if isAdmin();
+    }
+
+    // ── Protokoll der Admin-/Leiter-Aktionen ─────────────────────
+    match /staffLog/{id} {
+      allow create: if isStaff() && request.resource.data.byUid == me();
+      allow read, delete: if isAdmin();
+    }
+
+    // Alles andere (z. B. die alte Sammlung "config" mit Klartext-Passwörtern) ist gesperrt.
+  }
+}

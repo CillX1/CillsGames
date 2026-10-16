@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>CillsGames</title>
+  <script>
+    // Falsche Adresse auf GitHub Pages -> zurück zur Startseite von CillsGames
+    // (erster Pfadteil = Repo-Name, z. B. /CillsGames/)
+    var base = '/' + (location.pathname.split('/')[1] || '') + '/';
+    location.replace(base === '//' ? '/' : base);
+  </script>
+</head>
+<body style="background:#1a1a2e;color:#fff;font-family:system-ui;text-align:center;padding:40px">
+  <p>Seite nicht gefunden – <a href="./" style="color:#00d4ff">zurück zu CillsGames</a></p>
+</body>
+</html>

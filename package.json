@@ -1,0 +1,24 @@
+{
+  "name": "cillsgames",
+  "version": "3.0.0",
+  "private": true,
+  "description": "CillsGames – Browser-Spieleportal mit 20 Spielen, Rangliste, Shop und Casino. Läuft auf GitHub Pages mit Firebase.",
+  "type": "module",
+  "license": "GPL-3.0-only",
+  "author": "Cillian Fontannaz",
+  "repository": { "type": "git", "url": "https://github.com/CillX1/CillsGames.git" },
+  "homepage": "https://cillx1.github.io/CillsGames/",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node --test tests/unit/*.test.js",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-cillsgames \"node --test tests/rules/*.test.js\"",
+    "test:e2e": "python3 tests/e2e/run.py",
+    "admin-hash": "node scripts/admin-hash.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase": "10.12.0",
+    "firebase-tools": "^13.35.1"
+  }
+}
