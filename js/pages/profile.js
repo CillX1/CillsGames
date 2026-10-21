@@ -11,7 +11,7 @@ function card(p, eq) {
   return `<div class="card profile-card">
     <div class="avatar" style="${avatarFrameStyle(eq.frame)}">${eq.badge ? eq.badge.icon : '🎮'}</div>
     <h1 class="profile-name" style="${nameStyle(eq)}">${esc(p.name)}</h1>
-    <div class="profile-title ${eq.title?.role ? 'role-' + eq.title.role : ''}">${eq.title ? `${eq.title.role ? eq.title.icon + ' ' : ''}「${esc(eq.title.name)}」` : '&nbsp;'}</div>
+    <div class="profile-title ${eq.title?.role ? 'role-' + eq.title.role : ''}">${eq.title ? esc(eq.title.name) : '&nbsp;'}</div>
     <div class="profile-stats">
       <div><b>${formatNum(p.points)}</b><span>🎯 Punkte</span></div>
       <div><b>${formatNum(p.stars)}</b><span>⭐ Sterne</span></div>
@@ -44,7 +44,7 @@ export function renderOwn(view) {
           <div class="equip-grid">${bySlot[slot].map((it) => {
             const on = u.equipped[slot] === it.id;
             return `<button type="button" class="equip-item ${on ? 'on' : ''}" data-equip="${it.id}" aria-pressed="${on}">
-              <span class="equip-icon">${it.icon}</span><span class="equip-name">${esc(it.name)}</span>
+              ${it.slot === 'title' ? `<span class="equip-icon"><span class="title-preview">${esc(it.name)}</span></span>` : `<span class="equip-icon">${it.icon}</span><span class="equip-name">${esc(it.name)}</span>`}
               <span class="equip-state">${on ? '✅ Ausgerüstet' : 'Ausrüsten'}</span></button>`;
           }).join('')}</div>`).join('') : '<p class="empty">Noch keine Items. Schau im <a href="#/shop">Shop</a> vorbei!</p>'}
       </div>

@@ -1,7 +1,7 @@
 // Shop mit Filter nach Slot und Seltenheit + Gutscheine.
 import * as store from '../store.js';
 import { esc, formatInt } from '../util.js';
-import { SHOP_ITEMS, SLOTS, RARITY } from '../data/shop.js';
+import { SHOP_ITEMS, SLOTS, RARITY, itemLabel } from '../data/shop.js';
 import { toast, confirmDialog } from '../ui.js';
 import { openAuthDialog } from '../auth-ui.js';
 import { play } from '../sound.js';
@@ -44,8 +44,8 @@ export function render(view) {
       else btn = `<button type="button" class="btn btn-small btn-gold" data-buy="${it.id}" ${u && !afford ? 'disabled' : ''}>${u && !afford ? `Noch ${formatInt(it.price - u.points)}` : 'Kaufen'}</button>`;
       return `<div class="shop-item r-${it.rarity} ${on ? 'on' : ''}">
         <span class="rarity">${RARITY[it.rarity].label}</span>
-        <div class="shop-icon">${it.icon}</div>
-        <div class="shop-name">${esc(it.name)}</div>
+        ${it.slot === 'title' ? `<div class="shop-icon"><span class="title-preview">${esc(it.name)}</span></div>` : `<div class="shop-icon">${it.icon}</div>
+        <div class="shop-name">${esc(it.name)}</div>`}
         <div class="shop-slot">${SLOTS[it.slot]}</div>
         <div class="shop-price">🎯 ${formatInt(it.price)}</div>
         ${btn}
@@ -68,7 +68,7 @@ export function render(view) {
     if (!store.isLoggedIn() && (buy || equip)) { openAuthDialog(); return; }
     if (buy) {
       const it = SHOP_ITEMS.find((x) => x.id === buy.dataset.buy);
-      if (!(await confirmDialog('Kaufen?', `${it.icon} ${it.name} für ${formatInt(it.price)} Punkte kaufen?`, { okText: 'Kaufen' }))) return;
+      if (!(await confirmDialog('Kaufen?', `${itemLabel(it)} für ${formatInt(it.price)} Punkte kaufen?`, { okText: 'Kaufen' }))) return;
       const r = await store.buyItem(it.id);
       if (r.ok) { play('coin'); toast(`✅ ${it.name} gekauft!`, 'success'); } else toast(r.msg, 'error');
     }
@@ -84,7 +84,7 @@ export function render(view) {
       const r = await store.redeemVoucher(input.value);
       if (r.ok) {
         play('win');
-        toast(r.already ? `Code eingelöst – ${r.item.name} hattest du schon.` : `🎉 ${r.item.icon} ${r.item.name} freigeschaltet! Im Profil ausrüsten.`, 'success', 5000);
+        toast(r.already ? `Code eingelöst – ${r.item.name} hattest du schon.` : `🎉 ${itemLabel(r.item)} freigeschaltet! Im Profil ausrüsten.`, 'success', 5000);
         input.value = '';
       } else toast(r.msg, 'error');
     } finally { btn.disabled = false; }

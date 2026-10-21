@@ -25,7 +25,7 @@ export function render(view) {
           return `<tr class="${r.id === myUid ? 'me' : ''} ${eq.frame ? 'framed' : ''}" style="${rowFrameStyle(eq.frame)}" data-uid="${esc(r.id)}" tabindex="0">
             <td><span class="rank rank-${rank <= 3 ? rank : 'n'}">${rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}</span></td>
             <td><span class="lb-name" style="${nameStyle(eq)}">${esc(r.name)}</span>${r.id === myUid ? ' <span class="you">(Du)</span>' : ''}
-              ${eq.title ? `<span class="lb-title ${eq.title.role ? 'role-' + eq.title.role : ''}">${eq.title.role ? eq.title.icon + ' ' : ''}「${esc(eq.title.name)}」</span>` : ''}${eq.badge ? `<span class="lb-badge">${eq.badge.icon}</span>` : ''}</td>
+              ${eq.title ? `<span class="lb-title ${eq.title.role ? 'role-' + eq.title.role : ''}">「${esc(eq.title.name)}」</span>` : ''}${eq.badge ? `<span class="lb-badge">${eq.badge.icon}</span>` : ''}</td>
             <td class="num stars">${formatNum(r.stars)} ⭐</td>
             <td class="num hide-sm muted">${formatNum(r.points)}</td>
           </tr>`;

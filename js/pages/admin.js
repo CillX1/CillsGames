@@ -3,7 +3,7 @@
 import * as store from '../store.js';
 import { esc, formatInt, friendlyError, nameToEmail } from '../util.js';
 import { GAMES, GAME_BY_ID } from '../data/games.js';
-import { ITEMS, ITEM_BY_ID, ALL_ROLE_ITEM_IDS } from '../data/shop.js';
+import { ITEMS, ITEM_BY_ID, ALL_ROLE_ITEM_IDS, itemLabel } from '../data/shop.js';
 import { OWNER_USERNAMES } from '../firebase-config.js';
 import { toast, confirmDialog, openDialog } from '../ui.js';
 import { openAuthDialog } from '../auth-ui.js';
@@ -239,7 +239,7 @@ function itemsDialog(u) {
     title: `🎨 Items von ${esc(u.name)}`,
     wide: true,
     content: `<p class="muted small">Haken = besitzt das Item. Exklusive Items (👑 VIP-Krone, 🐲 Ur-Drache) gibt es nur so oder per Gutschein. Admin-/Leiter-Titel kommen automatisch mit der Rolle.</p>
-      <div class="check-list cols">${ITEMS.filter((it) => !it.role).map((it) => `<label class="check"><input type="checkbox" value="${it.id}" ${inv.has(it.id) ? 'checked' : ''}> ${it.icon} ${esc(it.name)}</label>`).join('')}</div>
+      <div class="check-list cols">${ITEMS.filter((it) => !it.role).map((it) => `<label class="check"><input type="checkbox" value="${it.id}" ${inv.has(it.id) ? 'checked' : ''}> ${esc(itemLabel(it))}</label>`).join('')}</div>
       <div class="dialog-actions"><button type="button" class="btn btn-primary" data-save>Speichern</button></div>`,
     onOpen(root, close) {
       root.querySelector('[data-save]').onclick = async (e) => {
@@ -272,13 +272,13 @@ async function vouchersTab(body) {
       <h2 class="section-title">Neuer Gutschein</h2>
       <form class="row wrap" data-new>
         <input class="input" name="code" placeholder="CODE (A–Z, 0–9, -)" maxlength="40" required>
-        <select class="input" name="item">${ITEMS.filter((it) => !it.role).map((it) => `<option value="${it.id}">${it.icon} ${esc(it.name)}${it.exclusive ? ' (exklusiv)' : ''}</option>`).join('')}</select>
+        <select class="input" name="item">${ITEMS.filter((it) => !it.role).map((it) => `<option value="${it.id}">${esc(itemLabel(it))}${it.exclusive ? ' (exklusiv)' : ''}</option>`).join('')}</select>
         <button type="button" class="btn btn-ghost" data-random>🎲 Zufall</button>
         <button class="btn btn-primary" type="submit">Erstellen</button>
       </form>
       <p class="muted small">Jeder Spieler kann einen Code einmal einlösen. Gutscheine liegen in Firebase – niemand kann sie im Quelltext nachlesen.</p>
     </div>
-    <div class="admin-list">${list.length ? list.map((v) => `<div class="admin-row"><div class="admin-name"><code>${esc(v.id)}</code> → ${ITEM_BY_ID[v.item]?.icon || '❓'} ${esc(ITEM_BY_ID[v.item]?.name || v.item)}</div>
+    <div class="admin-list">${list.length ? list.map((v) => `<div class="admin-row"><div class="admin-name"><code>${esc(v.id)}</code> → ${esc(ITEM_BY_ID[v.item] ? itemLabel(ITEM_BY_ID[v.item]) : v.item)}</div>
       <div class="admin-ctrl"><button type="button" class="btn btn-ghost btn-small" data-copy="${esc(v.id)}">📋</button><button type="button" class="btn btn-danger btn-small" data-del="${esc(v.id)}">🗑️</button></div></div>`).join('') : '<p class="empty">Noch keine Gutscheine.</p>'}</div>`;
   const form = body.querySelector('[data-new]');
   body.querySelector('[data-random]').onclick = () => {

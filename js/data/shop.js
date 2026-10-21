@@ -1,7 +1,7 @@
 // Alle kosmetischen Gegenstände. Rahmen & Namensfarben werden aus `c` (Farben) erzeugt,
 // damit Profil und Rangliste immer gleich aussehen.
 
-export const SLOTS = { badge: '🏅 Abzeichen', title: '📛 Titel', color: '🌈 Namensfarbe', frame: '🖼️ Rahmen' };
+export const SLOTS = { badge: '🏅 Abzeichen', title: 'Titel', color: '🌈 Namensfarbe', frame: '🖼️ Rahmen' };
 export const RARITY = {
   common: { label: '◆ GEWÖHNLICH', order: 0 },
   rare: { label: '★ SELTEN', order: 1 },
@@ -32,23 +32,23 @@ export const ITEMS = [
   // Rollen-Items: gibt es nur automatisch mit der Rolle (nicht kaufbar, nicht per Gutschein)
   I('badge_admin', 'badge', 'Admin', '🛡️', 0, 'legendary', { exclusive: true, role: 'admin' }),
   // Titel
-  I('title_noob', 'title', 'Noob', '😅', 50, 'common'),
-  I('title_afk', 'title', 'AFK', '😴', 100, 'common'),
-  I('title_tryhard', 'title', 'Tryhard', '🎯', 400, 'common'),
-  I('title_pro', 'title', 'Pro Gamer', '🎮', 500, 'common'),
-  I('title_ghost', 'title', 'Ghost', '👻', 600, 'common'),
-  I('title_grinder', 'title', 'Grinder', '⚙️', 800, 'common'),
-  I('title_bigbrain', 'title', 'Big Brain', '🧠', 1200, 'rare'),
-  I('title_ninja', 'title', 'Ninja', '🥷', 1200, 'rare'),
-  I('title_goat', 'title', 'G.O.A.T', '🐐', 1500, 'rare'),
-  I('title_legend', 'title', 'Legende', '🏆', 2000, 'epic'),
-  I('title_rainbow', 'title', 'Rainbow', '🌈', 2500, 'epic'),
-  I('title_starlord', 'title', 'Star Lord', '🌟', 3000, 'epic'),
-  I('title_gambler', 'title', 'Gambling Master', '🎰', 3000, 'epic'),
-  I('title_king', 'title', 'King', '👑', 4000, 'epic'),
-  I('title_immortal', 'title', 'Immortal', '🌌', 10000, 'legendary'),
-  I('title_leiter', 'title', 'Leiter', '👔', 0, 'epic', { exclusive: true, role: 'leiter' }),
-  I('title_admin', 'title', 'Admin', '🔐', 0, 'legendary', { exclusive: true, role: 'admin' }),
+  I('title_noob', 'title', 'Noob', '', 50, 'common'),
+  I('title_afk', 'title', 'AFK', '', 100, 'common'),
+  I('title_tryhard', 'title', 'Tryhard', '', 400, 'common'),
+  I('title_pro', 'title', 'Pro Gamer', '', 500, 'common'),
+  I('title_ghost', 'title', 'Ghost', '', 600, 'common'),
+  I('title_grinder', 'title', 'Grinder', '', 800, 'common'),
+  I('title_bigbrain', 'title', 'Big Brain', '', 1200, 'rare'),
+  I('title_ninja', 'title', 'Ninja', '', 1200, 'rare'),
+  I('title_goat', 'title', 'G.O.A.T', '', 1500, 'rare'),
+  I('title_legend', 'title', 'Legende', '', 2000, 'epic'),
+  I('title_rainbow', 'title', 'Rainbow', '', 2500, 'epic'),
+  I('title_starlord', 'title', 'Star Lord', '', 3000, 'epic'),
+  I('title_gambler', 'title', 'Gambling Master', '', 3000, 'epic'),
+  I('title_king', 'title', 'King', '', 4000, 'epic'),
+  I('title_immortal', 'title', 'Immortal', '', 10000, 'legendary'),
+  I('title_leiter', 'title', 'Leiter', '', 0, 'epic', { exclusive: true, role: 'leiter' }),
+  I('title_admin', 'title', 'Admin', '', 0, 'legendary', { exclusive: true, role: 'admin' }),
   // Namensfarben
   I('color_neon', 'color', 'Neon', '🌈', 150, 'common', { c: ['#00d4ff', '#ff006e', '#00ff88'] }),
   I('color_gold', 'color', 'Gold', '✨', 700, 'rare', { c: ['#ffd700', '#ff8800'] }),
@@ -71,6 +71,12 @@ export const ITEMS = [
   I('frame_solar', 'frame', 'Solar', '☀️', 7500, 'legendary', { c: ['#ff7700', '#ffdd00'] }),
   I('frame_diamond', 'frame', 'Diamant', '💎', 15000, 'legendary', { c: ['#a0f0ff', '#ffffff'] }),
 ];
+
+/** Anzeige-Text eines Items: Titel nur als Text, alles andere mit Emoji. */
+export function itemLabel(it) {
+  if (!it) return '';
+  return it.slot === 'title' ? `Titel ${it.name}` : `${it.icon} ${it.name}`;
+}
 
 export const ITEM_BY_ID = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 export const SHOP_ITEMS = ITEMS.filter((i) => !i.exclusive);
