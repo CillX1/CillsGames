@@ -97,7 +97,11 @@ def login(page, name, pw='geheim123'):
     d.locator('[data-form=login] [name=name]').fill(name)
     d.locator('[data-form=login] [name=pass]').fill(pw)
     d.locator('[data-form=login] button[type=submit]').click()
-    expect(page.locator('#menuUser')).to_have_text(name, timeout=5000)
+    try:
+        expect(page.locator('#menuUser')).to_have_text(name, timeout=10000)
+    except AssertionError:
+        msg = d.locator('[data-form=login] .form-error').inner_text() if d.count() else '(kein Login-Fenster mehr offen)'
+        raise AssertionError(f'Login als {name} fehlgeschlagen – Meldung im Fenster: {msg!r}')
 
 def logout(page):
     page.goto(BASE + '?backend=local#/einstellungen')
@@ -122,11 +126,12 @@ def play_canvas(page, keys, secs=3.0, clicks=False):
         page.wait_for_timeout(40)
 
 def choose_mode(page, which=0):
-    page.wait_for_timeout(250)
-    btns = page.locator('.mode-btn')
-    if btns.count():
-        btns.nth(min(which, btns.count() - 1)).click()
-        page.wait_for_timeout(200)
+    # Warten, bis die Schwierigkeitsauswahl wirklich da ist (alle Spiele haben eine)
+    btns = page.locator('.mode-picker .mode-btn')
+    btns.first.wait_for(timeout=10000)
+    btns.nth(min(which, btns.count() - 1)).click()
+    page.locator('.mode-picker').wait_for(state='detached', timeout=5000)
+    page.wait_for_timeout(200)
 
 def play_game(page, gid):
     if gid in ('dino', 'flappy'):
@@ -183,9 +188,12 @@ def play_game(page, gid):
         page.keyboard.press('Digit2'); page.wait_for_timeout(300)
 
 def finish_round(page, gid, retry=False):
-    # Falls das Spiel schon von selbst zu Ende ist, ist der Dialog bereits offen
-    if not page.locator('.game-over').count():
-        page.locator('[data-act=finish]').click()
+    other = page.locator('.dialog-backdrop.show .dialog:not(:has(.game-over))')
+    if other.count():
+        raise AssertionError(f'{gid}: unerwartetes Fenster offen: ' + other.first.inner_text()[:300])
+    # Per JavaScript klicken: endet das Spiel genau jetzt von selbst, liegt sonst das
+    # "Spiel vorbei"-Fenster über dem Knopf. Ist die Runde schon vorbei, macht der Klick nichts.
+    page.evaluate("document.querySelector('[data-act=finish]').click()")
     go = page.locator('.game-over')
     go.wait_for(timeout=6000)
     pts = go.locator('.go-points').inner_text()
@@ -263,7 +271,6 @@ with sync_playwright() as p:
     print('▶ Freie Spiele')
     for i, gid in enumerate(FREE):
         page.goto(BASE + f'?backend=local#/spiel/{gid}')
-        page.wait_for_selector('[data-stage] > *')
         choose_mode(page, i % 3)
         page.wait_for_timeout(300)
         play_game(page, gid)
@@ -310,7 +317,6 @@ with sync_playwright() as p:
     assert page.locator('.game-card.locked').count() == 0, 'Alles sollte frei sein'
     for i, gid in enumerate(LOCKED):
         page.goto(BASE + f'?backend=local#/spiel/{gid}')
-        page.wait_for_selector('[data-stage] > *')
         choose_mode(page, i % 3)
         page.wait_for_timeout(300)
         play_game(page, gid)
