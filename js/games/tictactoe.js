@@ -32,16 +32,25 @@ export function bestMove(b, me = 'O') {
   return move;
 }
 
-export function start(host) {
-  const board = Array(9).fill(null);
-  let busy = false, done = false;
-  const MISTAKE = 0.28; // Wahrscheinlichkeit, dass die KI nicht perfekt spielt -> man kann gewinnen
+export const modes = [
+  { id: 'easy', label: 'Leicht', desc: 'Die KI macht oft Fehler' },
+  { id: 'normal', label: 'Mittel', desc: 'Die KI ist gut, aber schlagbar' },
+  { id: 'hard', label: 'Unbesiegbar', desc: 'Perfekte KI – ein Unentschieden ist schon ein Erfolg (Punkte ×2)' },
+];
+const CFG = { easy: { mistake: 0.6, mult: 1 }, normal: { mistake: 0.25, mult: 1 }, hard: { mistake: 0, mult: 2 } };
+export const GAMES_PER_SERIES = 3;
+
+export function start(host, mode = 'normal') {
+  const C = CFG[mode] || CFG.normal;
+  let board = Array(9).fill(null);
+  let busy = false, done = false, round = 1, wins = 0, losses = 0, draws = 0, score = 0;
 
   const root = document.createElement('div');
   root.className = 'ttt';
-  root.innerHTML = '<div class="ttt-status" aria-live="polite"></div><div class="ttt-board"></div>';
+  root.innerHTML = `<div class="ttt-series"></div><div class="ttt-status" aria-live="polite"></div><div class="ttt-board"></div>`;
   host.stage.appendChild(root);
   const status = root.querySelector('.ttt-status');
+  const series = root.querySelector('.ttt-series');
   const boardEl = root.querySelector('.ttt-board');
   for (let i = 0; i < 9; i++) {
     const b = document.createElement('button');
@@ -50,6 +59,15 @@ export function start(host) {
   }
   const cells = [...boardEl.children];
 
+  function renderSeries() {
+    const dots = Array.from({ length: GAMES_PER_SERIES }, (_, i) => {
+      const r = results[i];
+      return `<span class="ttt-dot ${r || ''}">${r === 'win' ? '✓' : r === 'lose' ? '✗' : r === 'draw' ? '=' : i + 1}</span>`;
+    }).join('');
+    series.innerHTML = `Partie ${Math.min(round, GAMES_PER_SERIES)} von ${GAMES_PER_SERIES} ${dots}`;
+  }
+  const results = [];
+
   function render(win) {
     cells.forEach((c, i) => {
       c.textContent = board[i] === 'X' ? '✕' : board[i] === 'O' ? '◯' : '';
@@ -57,31 +75,55 @@ export function start(host) {
       c.disabled = !!board[i] || busy || done;
     });
   }
-  function finish(result) {
+  function endRound(result) {
     done = true;
     const w = winner(board);
     render(w);
-    const s = result === 'win' ? 100 : result === 'draw' ? 30 : 0;
-    status.textContent = result === 'win' ? '🎉 Du gewinnst!' : result === 'draw' ? '🤝 Unentschieden' : '🤖 Die KI gewinnt';
-    host.setScore(s);
+    results.push(result);
+    if (result === 'win') { wins++; score += 100 * C.mult; } else if (result === 'draw') { draws++; score += 30 * C.mult; } else losses++;
+    host.setScore(score);
+    status.textContent = result === 'win' ? '🎉 Du gewinnst die Partie!' : result === 'draw' ? '🤝 Unentschieden' : '🤖 Die KI gewinnt die Partie';
     host.sound(result === 'win' ? 'win' : result === 'draw' ? 'point' : 'lose');
-    host.timeout(() => host.end(s), 1300);
+    renderSeries();
+    if (round >= GAMES_PER_SERIES) {
+      host.timeout(() => {
+        status.textContent = `Serie vorbei: ${wins} Siege · ${draws} Unentschieden · ${losses} Niederlagen`;
+        host.timeout(() => host.end(score), 1300);
+      }, 1100);
+      return;
+    }
+    host.timeout(() => { round++; newRound(); }, 1400);
   }
   function check() {
     const w = winner(board);
-    if (w) { finish(w.p === 'X' ? 'win' : 'lose'); return true; }
-    if (board.every(Boolean)) { finish('draw'); return true; }
+    if (w) { endRound(w.p === 'X' ? 'win' : 'lose'); return true; }
+    if (board.every(Boolean)) { endRound('draw'); return true; }
     return false;
   }
   function aiTurn() {
     const free = board.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0);
-    // Gewinnzug nimmt die KI immer, sonst manchmal ein zufälliger Zug
     let move = free.find((i) => { board[i] = 'O'; const w = winner(board); board[i] = null; return w; });
-    if (move === undefined) move = Math.random() < MISTAKE ? free[Math.floor(Math.random() * free.length)] : bestMove(board, 'O');
+    if (move === undefined) move = Math.random() < C.mistake ? free[Math.floor(Math.random() * free.length)] : bestMove(board, 'O');
     board[move] = 'O';
     host.sound('click');
     busy = false;
     if (!check()) { status.textContent = 'Du bist dran (✕)'; render(); }
+  }
+  function newRound() {
+    board = Array(9).fill(null);
+    done = false;
+    renderSeries();
+    // abwechselnd beginnen: Partie 1 und 3 du, Partie 2 die KI
+    if (round % 2 === 0) {
+      busy = true;
+      status.textContent = 'Die KI beginnt…';
+      render();
+      host.timeout(aiTurn, 600);
+    } else {
+      busy = false;
+      status.textContent = round === 1 ? 'Du bist dran (✕) – du fängst an' : 'Du beginnst (✕)';
+      render();
+    }
   }
   host.on(boardEl, 'click', (e) => {
     const c = e.target.closest('.ttt-cell');
@@ -100,6 +142,5 @@ export function start(host) {
     const n = parseInt(e.key, 10);
     if (first && n >= 1 && n <= 9) cells[n - 1].click();
   });
-  status.textContent = 'Du bist dran (✕) – du fängst an';
-  render();
+  newRound();
 }

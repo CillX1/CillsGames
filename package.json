@@ -1,6 +1,6 @@
 {
   "name": "cillsgames",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "private": true,
   "description": "CillsGames – Browser-Spieleportal mit 20 Spielen, Rangliste, Shop und Casino. Läuft auf GitHub Pages mit Firebase.",
   "type": "module",

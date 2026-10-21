@@ -83,9 +83,17 @@ export function aiMove(b, me = 2, depth = 5) {
   return search(depth, -Infinity, Infinity, true).c;
 }
 
-export function start(host) {
+export const modes = [
+  { id: 'easy', label: 'Leicht', desc: 'Die KI denkt nur kurz nach' },
+  { id: 'normal', label: 'Mittel', desc: 'Die KI rechnet 4 Züge voraus' },
+  { id: 'hard', label: 'Schwer', desc: 'Die KI rechnet 6 Züge voraus – Punkte ×1.5' },
+];
+const CFG = { easy: { depth: 2, mistake: 0.3, mult: 1 }, normal: { depth: 4, mistake: 0.1, mult: 1 }, hard: { depth: 6, mistake: 0, mult: 1.5 } };
+
+export function start(host, mode = 'normal') {
+  const C = CFG[mode] || CFG.normal;
   const board = emptyBoard();
-  let turn = 1, done = false, moves = 0;
+  let turn = 1, done = false, moves = 0, lastMove = null, hoverCol = -1;
   const root = document.createElement('div');
   root.className = 'c4';
   root.innerHTML = '<div class="c4-status" aria-live="polite">Du bist dran 🔴</div><div class="c4-board" role="grid"></div>';
@@ -101,9 +109,15 @@ export function start(host) {
   const cols = [...boardEl.children];
 
   function render(line) {
+    const previewRow = turn === 1 && !done && hoverCol >= 0 ? dropRow(board, hoverCol) : -1;
     cols.forEach((col, c) => {
       [...col.children].forEach((slot, r) => {
-        slot.className = 'c4-slot' + (board[r][c] === 1 ? ' p1' : board[r][c] === 2 ? ' p2' : '') + (line?.some(([rr, cc]) => rr === r && cc === c) ? ' win' : '');
+        const isLast = lastMove && lastMove[0] === r && lastMove[1] === c;
+        slot.className = 'c4-slot' + (board[r][c] === 1 ? ' p1' : board[r][c] === 2 ? ' p2' : '')
+          + (line?.some(([rr, cc]) => rr === r && cc === c) ? ' win' : '')
+          + (isLast ? ' last drop' : '')
+          + (!board[r][c] && c === hoverCol && r === previewRow ? ' preview' : '');
+        if (isLast) slot.style.setProperty('--fall', `${(r + 1) * -100}%`);
       });
       col.disabled = done || turn !== 1 || !!board[0][c];
     });
@@ -111,23 +125,26 @@ export function start(host) {
   function finish(result) {
     done = true;
     render(result === 'win' ? winLine(board, 1) : result === 'lose' ? winLine(board, 2) : null);
-    // schneller Sieg = mehr Punkte
-    const s = result === 'win' ? 200 + Math.max(0, 21 - Math.ceil(moves / 2)) * 15 : result === 'draw' ? 60 : 0;
-    status.textContent = result === 'win' ? '🎉 Du gewinnst!' : result === 'draw' ? '🤝 Unentschieden' : '🤖 Die KI gewinnt';
+    const s = Math.round((result === 'win' ? 200 + Math.max(0, 21 - Math.ceil(moves / 2)) * 15 : result === 'draw' ? 60 : 0) * C.mult);
+    status.textContent = result === 'win' ? `🎉 Du gewinnst in ${Math.ceil(moves / 2)} Zügen!` : result === 'draw' ? '🤝 Unentschieden' : '🤖 Die KI gewinnt';
     host.setScore(s);
     host.sound(result === 'win' ? 'win' : result === 'draw' ? 'point' : 'lose');
-    host.timeout(() => host.end(s), 1500);
+    host.timeout(() => host.end(s), 1700);
   }
   function play(c, who) {
     const r = dropRow(board, c);
     if (r < 0) return false;
     board[r][c] = who;
+    lastMove = [r, c];
     moves++;
     host.sound('click');
     if (isWin(board, who)) { finish(who === 1 ? 'win' : 'lose'); return true; }
     if (board[0].every(Boolean)) { finish('draw'); return true; }
+    render();
     return true;
   }
+  host.on(boardEl, 'pointerover', (e) => { const col = e.target.closest('.c4-col'); hoverCol = col ? +col.dataset.c : -1; if (!done) render(); });
+  host.on(boardEl, 'pointerleave', () => { hoverCol = -1; if (!done) render(); });
   host.on(boardEl, 'click', (e) => {
     const col = e.target.closest('.c4-col');
     if (!col || done || turn !== 1 || host.paused) return;
@@ -136,11 +153,10 @@ export function start(host) {
     status.textContent = 'Die KI überlegt… 🟡';
     render();
     host.timeout(() => {
-      // Ab und zu (15 %) ein schwächerer Zug, damit die KI schlagbar bleibt
-      const c = Math.random() < 0.15 ? aiMove(board, 2, 2) : aiMove(board, 2, 5);
+      const c = Math.random() < C.mistake ? aiMove(board, 2, 1) : aiMove(board, 2, C.depth);
       play(c, 2);
       if (!done) { turn = 1; status.textContent = 'Du bist dran 🔴'; render(); }
-    }, 350);
+    }, 380);
   });
   host.onKey((e, first) => {
     const n = parseInt(e.key, 10);

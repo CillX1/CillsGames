@@ -1,3 +1,5 @@
+import { makeParticles } from './host.js';
+
 // 🧩 Tetris – 7er-Beutel, Wandkicks, Halten, Vorschau, Level, gedrückt halten = wiederholen.
 export const COLS = 10, ROWS = 20;
 export const PIECES = {
@@ -39,7 +41,14 @@ export function makeBag(rng = Math.random) {
   return b;
 }
 
-export function start(host) {
+export const modes = [
+  { id: 'marathon', label: 'Marathon', desc: 'Endlos – alle 10 Linien wird es schneller' },
+  { id: 'sprint', label: 'Sprint 40', desc: '40 Linien so schnell wie möglich – Zeitbonus' },
+  { id: 'ultra', label: 'Ultra', desc: '2 Minuten – so viele Punkte wie möglich' },
+];
+const ULTRA_TIME = 120 * 60;
+
+export function start(host, mode = 'marathon') {
   const CS = 28, PANEL = 130, W = COLS * CS + PANEL, H = ROWS * CS;
   const { ctx } = host.createCanvas(W, H);
   host.touchControls([
@@ -48,7 +57,8 @@ export function start(host) {
   ]);
   let board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
   let bag = [], queue = [], cur = null, hold = null, canHold = true;
-  let score = 0, lines = 0, level = 1, dropT = 0, lockT = 0;
+  let score = 0, lines = 0, level = 1, dropT = 0, lockT = 0, combo = -1, b2b = false, frames = 0;
+  const parts = makeParticles();
   const das = { dir: 0, t: 0 };
   let clearFlash = [];
 
@@ -90,12 +100,38 @@ export function start(host) {
     const res = clearFullRows(board);
     board = res.board;
     if (res.cleared) {
-      clearFlash = full.map((r) => ({ r, t: 12 }));
-      score += LINE_SCORES[res.cleared] * level;
+      clearFlash = full.map((r) => ({ r, t: 14 }));
+      for (const r of full) for (let c = 0; c < COLS; c++) parts.burst(c * CS + CS / 2, r * CS + CS / 2, '#ffffff', 2, 3);
+      combo++;
+      const tetris = res.cleared >= 4;
+      let gained = LINE_SCORES[res.cleared] * level;
+      if (tetris && b2b) gained = Math.round(gained * 1.5);
+      if (combo > 0) gained += 50 * combo * level;
+      b2b = tetris;
+      score += gained;
       lines += res.cleared;
-      level = 1 + Math.floor(lines / 10);
-      host.sound(res.cleared >= 4 ? 'win' : 'coin');
-    } else host.sound('click');
+      const newLevel = 1 + Math.floor(lines / 10);
+      if (newLevel > level) host.floatText((COLS * CS) / 2, H / 2 - 50, `Level ${newLevel}!`, '#00d4ff', 26);
+      level = newLevel;
+      const label = ['', '', 'Doppel!', 'Dreifach!', 'TETRIS!'][res.cleared];
+      if (label) host.floatText((COLS * CS) / 2, full[0] * CS, (tetris && gained > LINE_SCORES[4] * level ? 'Back-to-Back ' : '') + label, tetris ? '#ffd700' : '#00e68a', tetris ? 30 : 22);
+      host.floatText((COLS * CS) / 2, full[0] * CS + 30, `+${gained}${combo > 0 ? `  Kombo ${combo}` : ''}`, '#fff', 16);
+      if (tetris) host.shake(8);
+      host.sound(tetris ? 'win' : 'coin');
+      if (mode === 'sprint' && lines >= 40) {
+        const secs = frames / 60;
+        const bonus = Math.max(0, Math.round((300 - secs) * 20));
+        score += bonus;
+        host.setScore(score);
+        host.floatText((COLS * CS) / 2, H / 2, `Geschafft! Zeitbonus +${bonus}`, '#ffd700', 20);
+        host.sound('win');
+        host.timeout(() => host.end(score), 600);
+        host.setScore(score);
+        canHold = true;
+        cur = null;
+        return;
+      }
+    } else { combo = -1; host.sound('click'); }
     host.setScore(score);
     canHold = true;
     spawn();
@@ -104,6 +140,8 @@ export function start(host) {
     let d = 0;
     while (!collides(board, cur.m, cur.x, cur.y + 1)) { cur.y++; d++; }
     score += d * 2;
+    if (d > 4) host.shake(3);
+    cur.m.forEach((row, r) => row.forEach((v, c) => { if (v && r === cur.m.length - 1) parts.burst((cur.x + c) * CS + CS / 2, (cur.y + r) * CS + CS, PIECES[cur.t].color, 2, 2); }));
     lock();
   }
   function doHold() {
@@ -115,7 +153,7 @@ export function start(host) {
   }
 
   host.onKey((e, first) => {
-    if (host.over) return;
+    if (host.over || !cur) return;
     if (e.code === 'ArrowLeft' || e.code === 'KeyA') { if (first) { move(-1); das.dir = -1; das.t = 0; } }
     else if (e.code === 'ArrowRight' || e.code === 'KeyD') { if (first) { move(1); das.dir = 1; das.t = 0; } }
     else if ((e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'KeyX') && first) rotate();
@@ -125,6 +163,10 @@ export function start(host) {
 
   host.loop(() => {
     for (let i = clearFlash.length - 1; i >= 0; i--) if (--clearFlash[i].t <= 0) clearFlash.splice(i, 1);
+    parts.update(0.2);
+    if (!cur) return;
+    frames++;
+    if (mode === 'ultra' && frames >= ULTRA_TIME) { host.sound('win'); host.end(score); return; }
     // gehaltene Pfeiltaste: nach kurzer Pause schnell wiederholen
     const dir = host.left ? -1 : host.right ? 1 : 0;
     if (dir && dir === das.dir) { if (++das.t > 10 && das.t % 3 === 0) move(dir); } else { das.dir = dir; das.t = 0; }
@@ -163,6 +205,13 @@ export function start(host) {
     ctx.fillText(`Level ${level}`, px + 14, 330);
     ctx.fillText(`Linien ${lines}`, px + 14, 352);
     ctx.fillStyle = '#ffd700'; ctx.fillText(`${score}`, px + 14, 380);
+    ctx.fillStyle = '#9fd'; ctx.font = 'bold 13px system-ui';
+    if (mode === 'sprint') ctx.fillText(`Noch ${Math.max(0, 40 - lines)} Linien`, px + 14, 420);
+    if (mode === 'ultra') ctx.fillText(`⏱️ ${Math.max(0, Math.ceil((ULTRA_TIME - frames) / 60))}s`, px + 14, 420);
+    if (mode !== 'ultra') ctx.fillText(`⏱️ ${Math.floor(frames / 3600)}:${String(Math.floor(frames / 60) % 60).padStart(2, '0')}`, px + 14, mode === 'sprint' ? 442 : 420);
+    if (combo > 0) { ctx.fillStyle = '#ff006e'; ctx.fillText(`Kombo ${combo}`, px + 14, 470); }
+    if (b2b) { ctx.fillStyle = '#ffd700'; ctx.fillText('Back-to-Back!', px + 14, 492); }
+    parts.draw(ctx);
   });
 
   function cell(x, y, s, color) {

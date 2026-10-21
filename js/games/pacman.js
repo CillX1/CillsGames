@@ -65,7 +65,20 @@ function bfsStep(from, to, canHouse) {
   return null;
 }
 
-export function start(host) {
+export const modes = [
+  { id: 'easy', label: 'Leicht', desc: '5 Leben, langsamere Geister, lange Angst-Zeit' },
+  { id: 'normal', label: 'Normal', desc: '3 Leben' },
+  { id: 'hard', label: 'Schwer', desc: '2 Leben, schnelle Geister, kurze Angst-Zeit – Punkte ×1.5' },
+];
+const CFG = {
+  easy: { lives: 5, ghost: 0.85, fright: 1.4, mult: 1 },
+  normal: { lives: 3, ghost: 1, fright: 1, mult: 1 },
+  hard: { lives: 2, ghost: 1.12, fright: 0.6, mult: 1.5 },
+};
+const FRUITS = [{ icon: '🍒', pts: 100 }, { icon: '🍓', pts: 300 }, { icon: '🍊', pts: 500 }, { icon: '🍎', pts: 700 }, { icon: '🍇', pts: 1000 }, { icon: '🔔', pts: 2000 }];
+
+export function start(host, mode = 'normal') {
+  const C = CFG[mode] || CFG.normal;
   const T = 26, HUD = 34, W = COLS * T, H = ROWS * T + HUD;
   const { ctx } = host.createCanvas(W, H);
   host.touchControls([
@@ -84,7 +97,8 @@ export function start(host) {
   fillDots();
   const pacStart = { x: MAP[15].indexOf('P'), y: 15 };
 
-  let score = 0, lives = 3, level = 1, frightT = 0, ghostChain = 0, ready = 120, modeT = 0, tick = 0, deathT = 0;
+  let fruit = null, dotsEaten = 0, extraLife = false;
+  let score = 0, lives = C.lives, level = 1, frightT = 0, ghostChain = 0, ready = 120, modeT = 0, tick = 0, deathT = 0;
   let wanted = null;
   const pac = { x: 0, y: 0, nx: 0, ny: 0, t: 0, dir: null, mouth: 0 };
   const ghostDefs = [
@@ -113,7 +127,8 @@ export function start(host) {
 
   const scatterPhase = () => { const c = modeT % (60 * 27); return c < 60 * 7; }; // 7s verteilen, 20s jagen
   const pacSpeed = () => Math.min(0.17, 0.13 + level * 0.008);
-  const ghostSpeed = (g) => g.mode === 'eyes' ? 0.33 : g.fright ? 0.065 : g.y === 9 && (g.x <= 4 || g.x >= COLS - 5) ? 0.07 : Math.min(0.16, 0.115 + level * 0.009);
+  const ghostSpeed = (g) => g.mode === 'eyes' ? 0.33 : g.fright ? 0.065 : g.y === 9 && (g.x <= 4 || g.x >= COLS - 5) ? 0.07 : Math.min(0.16, 0.115 + level * 0.009) * C.ghost;
+  const add = (n) => { n = Math.round(n * C.mult); score += n; if (!extraLife && score >= 10000) { extraLife = true; lives++; host.floatText(W / 2, ROWS * T / 2, 'Extraleben!', '#00e68a', 26); host.sound('win'); } return n; };
 
   function canGo(x, y, d) {
     const [dx, dy] = DIRS[d];
@@ -138,20 +153,32 @@ export function start(host) {
     if (pac.t >= 1) {
       pac.x = pac.nx; pac.y = pac.ny; pac.t = 0;
       const k = pac.y * COLS + pac.x;
-      if (dots.delete(k)) { score += 10; if (dots.size % 2 === 0) host.sound('click'); }
+      if (dots.delete(k)) {
+        add(10); dotsEaten++;
+        if (dots.size % 2 === 0) host.sound('click');
+        if (dotsEaten === 60 || dotsEaten === 140) fruit = { ...FRUITS[Math.min(level - 1, FRUITS.length - 1)], t: 600 };
+      }
+      if (fruit && pac.x === 10 && pac.y === 11) {
+        const n = add(fruit.pts);
+        host.floatText(10 * T + T / 2, 11 * T, '+' + n, '#ff6b9d', 20);
+        host.sound('coin');
+        fruit = null;
+      }
       if (powers.delete(k)) {
-        score += 50;
-        frightT = Math.max(150, 420 - level * 40);
+        add(50);
+        frightT = Math.round(Math.max(150, 420 - level * 40) * C.fright);
         ghostChain = 0;
         for (const g of ghosts) if (g.mode === 'active') { g.fright = true; if (g.t > 0) { [g.x, g.nx] = [g.nx, g.x]; [g.y, g.ny] = [g.ny, g.y]; g.t = 1 - g.t; g.dir = OPP[g.dir]; } }
         host.sound('coin');
       }
       host.setScore(score);
       if (!dots.size && !powers.size) {
-        score += 1000;
+        add(1000);
         host.setScore(score);
         host.sound('win');
+        host.floatText(W / 2, ROWS * T / 2 + 30, `Level ${level + 1}!`, '#ffd700', 30);
         level++;
+        dotsEaten = 0; fruit = null;
         fillDots();
         resetPositions();
         modeT = 0;
@@ -225,6 +252,7 @@ export function start(host) {
       return;
     }
     if (ready > 0) { ready--; return; }
+    if (fruit && --fruit.t <= 0) fruit = null;
     if (frightT > 0) { if (--frightT === 0) ghosts.forEach((g) => (g.fright = false)); } else modeT++;
     stepPac();
     for (const g of ghosts) stepGhost(g);
@@ -235,14 +263,16 @@ export function start(host) {
       if (Math.hypot(p.x - q.x, p.y - q.y) > 0.6) continue;
       if (g.fright) {
         ghostChain++;
-        const pts = 200 * 2 ** (ghostChain - 1);
-        score += pts;
+        const pts = add(200 * 2 ** (ghostChain - 1));
+        host.floatText(q.x * T + T / 2, q.y * T, '+' + pts, '#00d4ff', 18);
         host.setScore(score);
         g.mode = 'eyes'; g.fright = false;
         host.sound('win');
       } else {
         lives--;
         host.sound('lose');
+        host.shake(8);
+        fruit = null;
         deathT = 90;
         return;
       }
@@ -277,10 +307,12 @@ export function start(host) {
 
     if (deathT === 0) for (const g of ghosts) drawGhost(g);
 
+    if (fruit) { ctx.font = '20px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(fruit.icon, 10 * T + T / 2, 11 * T + T / 2 + 1); ctx.textBaseline = 'alphabetic'; }
     ctx.fillStyle = '#000'; ctx.fillRect(0, ROWS * T, W, HUD);
     ctx.fillStyle = '#ffd700'; ctx.font = 'bold 15px system-ui'; ctx.textAlign = 'left';
     ctx.fillText('🟡'.repeat(Math.max(0, lives)), 10, ROWS * T + 23);
-    ctx.textAlign = 'right'; ctx.fillText(`Level ${level}`, W - 10, ROWS * T + 23);
+    ctx.textAlign = 'center'; ctx.fillText(score, W / 2, ROWS * T + 23);
+    ctx.textAlign = 'right'; ctx.fillText(`Level ${level}  ${FRUITS[Math.min(level - 1, FRUITS.length - 1)].icon}`, W - 10, ROWS * T + 23);
     if (ready > 0 && deathT === 0) {
       ctx.textAlign = 'center'; ctx.fillStyle = '#ffd700'; ctx.font = 'bold 20px system-ui';
       ctx.fillText('BEREIT!', W / 2, 11 * T + T / 2 + 7);

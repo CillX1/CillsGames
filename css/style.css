@@ -226,6 +226,20 @@ textarea.input { resize: vertical; min-height: 70px; }
 .go-unlock { color: var(--green); margin-top: 8px; font-weight: 700; }
 .game-over .dialog-actions { justify-content: center; }
 @keyframes pulse { 50% { opacity: .55; } }
+.go-mode { display: inline-block; margin-bottom: 6px; padding: 2px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 13px; font-weight: 700; }
+.mode-picker { width: min(560px, 100%); text-align: center; padding: 26px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; animation: fadeIn .25s ease; }
+.mode-emoji { font-size: 56px; line-height: 1.1; }
+.mode-picker h2 { font-size: 1.3rem; margin: 6px 0 16px; }
+.mode-list { display: grid; gap: 10px; }
+.mode-btn { display: grid; grid-template-columns: 1fr; gap: 2px; text-align: left; padding: 14px 18px; border-radius: 14px; border: 2px solid var(--border); background: rgba(255,255,255,0.03); transition: .15s; }
+.mode-btn:hover, .mode-btn:focus-visible { border-color: var(--cyan); background: rgba(0,212,255,0.08); transform: translateY(-1px); }
+.mode-btn b { font-size: 1.05rem; }
+.mode-btn span { color: var(--muted); font-size: 13px; }
+.mode-btn small { color: var(--cyan); font-size: 11px; font-weight: 700; }
+.mode-btn.last { border-color: rgba(0,212,255,0.45); }
+.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 6000; overflow: hidden; }
+.confetti i { position: absolute; top: -20px; width: 9px; height: 14px; border-radius: 2px; animation: confetti-fall linear forwards; }
+@keyframes confetti-fall { to { transform: translate(var(--drift), 110vh) rotate(var(--spin)); } }
 
 /* DOM-Spiele: Wordle */
 .wordle { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; max-width: 500px; }
@@ -315,7 +329,7 @@ textarea.input { resize: vertical; min-height: 70px; }
 /* Minesweeper */
 .mines { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
 .ms-bar { display: flex; gap: 16px; align-items: center; font-weight: 800; }
-.ms-grid { display: grid; grid-template-columns: repeat(var(--cols), 1fr); gap: 3px; width: min(520px, 96vw); user-select: none; -webkit-user-select: none; }
+.ms-grid { display: grid; grid-template-columns: repeat(var(--cols), 1fr); gap: 3px; width: min(calc(var(--cols) * 44px), 96vw, calc(100vh - 230px)); user-select: none; -webkit-user-select: none; }
 .ms-cell { aspect-ratio: 1; border-radius: 5px; border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.13); font-weight: 900; font-size: clamp(12px, 3.4vw, 18px); padding: 0; -webkit-touch-callout: none; touch-action: manipulation; }
 .ms-cell:hover:not(.open) { background: rgba(255, 255, 255, 0.22); }
 .ms-cell.open { background: rgba(0, 0, 0, 0.32); border-color: rgba(255, 255, 255, 0.05); cursor: default; }
@@ -463,3 +477,48 @@ textarea.input { resize: vertical; min-height: 70px; }
 }
 .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; } }
+
+/* ── Spiel-Erweiterungen v3.1 ── */
+.wl-head { color: var(--muted); font-size: 13px; font-weight: 700; }
+.wl-row.won .wl-cell { animation: bounce .5s ease both; }
+.wl-row.won .wl-cell:nth-child(2) { animation-delay: .08s; } .wl-row.won .wl-cell:nth-child(3) { animation-delay: .16s; }
+.wl-row.won .wl-cell:nth-child(4) { animation-delay: .24s; } .wl-row.won .wl-cell:nth-child(5) { animation-delay: .32s; }
+@keyframes bounce { 40% { transform: translateY(-14px); } 70% { transform: translateY(3px); } }
+.wordle { position: relative; }
+.wl-result { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: 14px; padding: 20px; background: rgba(14, 14, 34, 0.96); border-radius: 18px; border: 1px solid var(--border); animation: fadeIn .3s ease; text-align: center; }
+.wl-result h3 { font-size: 1.4rem; }
+.wl-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.wl-stats div { display: flex; flex-direction: column; }
+.wl-stats b { font-size: 1.6rem; color: var(--cyan); }
+.wl-stats span { font-size: 11px; color: var(--muted); }
+.wl-dist { display: grid; gap: 4px; text-align: left; }
+.wl-dist div { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.wl-dist i { display: block; font-style: normal; background: #3a3a3c; padding: 2px 8px; text-align: right; border-radius: 4px; font-weight: 800; min-width: 22px; }
+.wl-dist i.hit { background: #538d4e; }
+.wl-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+.ttt-series { display: flex; align-items: center; gap: 6px; color: var(--muted); font-weight: 700; font-size: 14px; }
+.ttt-dot { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--surface-2); font-size: 12px; color: var(--muted); }
+.ttt-dot.win { background: rgba(0, 230, 138, .25); color: var(--green); }
+.ttt-dot.lose { background: rgba(255, 77, 94, .25); color: var(--red); }
+.ttt-dot.draw { background: rgba(255, 215, 0, .2); color: var(--gold); }
+.ttt-cell.x, .ttt-cell.o { animation: pop .18s ease; }
+
+.typ-stats { gap: 18px; }
+.typ-combo { min-height: 22px; color: var(--gold); font-weight: 800; }
+.typ-word.pop { animation: pop .2s ease; }
+.typing.hurt { animation: shake .35s; }
+
+.mem-info { flex-wrap: wrap; justify-content: center; gap: 14px; }
+.mem-grid { grid-template-columns: repeat(var(--cols, 6), 1fr); width: min(calc(var(--cols, 6) * 92px), 94vw, calc((100vh - 260px) * var(--cols, 6) / 6)); }
+@media (max-width: 520px) { .mem-grid { grid-template-columns: repeat(4, 1fr); width: 94vw; } }
+.mem-streak { min-height: 22px; color: var(--gold); font-weight: 800; }
+.mem-card.nope .mem-back { border-color: var(--red); background: rgba(255, 77, 94, .18); animation: shake .3s; }
+
+.c4-slot.preview { background: radial-gradient(circle at 35% 35%, rgba(255, 122, 122, .45), rgba(224, 15, 31, .35)); }
+.c4-slot.drop { animation: c4drop .35s cubic-bezier(.4, 0, 1, 1); }
+@keyframes c4drop { from { transform: translateY(var(--fall, -300%)); } }
+.c4-slot.last:not(.win) { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .55); }
+
+.quiz-jokers { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.quiz-a.gone { opacity: .2; }

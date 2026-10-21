@@ -1,4 +1,12 @@
 // 🟦 Block Blast – Teile antippen/ziehen und ins 8×8-Feld legen.
+import { makeParticles } from './host.js';
+
+export const modes = [
+  { id: 'classic', label: 'Klassisch', desc: 'Spielen, bis kein Teil mehr passt' },
+  { id: 'timed', label: 'Zeitjagd', desc: '2 Minuten – so viele Punkte wie möglich' },
+];
+const TIME_LIMIT = 120 * 60;
+
 export const SHAPES = [
   [[1]], [[1, 1]], [[1], [1]], [[1, 1, 1]], [[1], [1], [1]], [[1, 1, 1, 1]], [[1], [1], [1], [1]],
   [[1, 1], [1, 1]], [[1, 1, 1], [1, 1, 1], [1, 1, 1]],
@@ -34,11 +42,13 @@ export function clearLines(grid) {
   return { lines: rows.length + cols.length, rows, cols };
 }
 
-export function start(host) {
-  const N = 8, CELL = 56, GX = 26, GY = 26, W = GX * 2 + N * CELL, TRAY_Y = GY + N * CELL + 24, H = TRAY_Y + 150;
+export function start(host, mode = 'classic') {
+  const timed = mode === 'timed';
+  const N = 8, CELL = 56, GX = 26, GY = 40, W = GX * 2 + N * CELL, TRAY_Y = GY + N * CELL + 24, H = TRAY_Y + 150;
   const { ctx } = host.createCanvas(W, H);
   const grid = Array.from({ length: N }, () => Array(N).fill(null));
-  let pieces = [], selected = null, hover = null, dragging = false, score = 0, combo = 0;
+  let pieces = [], selected = null, hover = null, dragging = false, score = 0, combo = 0, bestCombo = 0, timeLeft = TIME_LIMIT, dragOffset = 0;
+  const parts = makeParticles();
   const flashes = [];
   const slotW = (W - 20) / 3;
 
@@ -51,7 +61,7 @@ export function start(host) {
   newPieces();
 
   const anchorFor = (p, pt) => ({
-    row: Math.round((pt.y - GY) / CELL - p.shape.length / 2),
+    row: Math.round((pt.y + dragOffset - GY) / CELL - p.shape.length / 2),
     col: Math.round((pt.x - GX) / CELL - p.shape[0].length / 2),
   });
   const pieceAt = (pt) => {
@@ -66,16 +76,28 @@ export function start(host) {
     const { row, col } = anchorFor(selected, pt);
     if (!canPlace(grid, selected.shape, row, col)) { host.sound('error'); return false; }
     let cells = 0;
+    const selected_w = selected.shape[0].length;
     selected.shape.forEach((rr, r) => rr.forEach((v, c) => { if (v) { grid[row + r][col + c] = selected.color; cells++; } }));
     selected.used = true;
     selected = null;
     score += cells;
+    const before = grid.map((r) => r.slice());
     const { lines, rows, cols } = clearLines(grid);
     if (lines) {
       combo++;
-      score += lines * 100 + (lines - 1) * 60 + (combo - 1) * 25;
+      bestCombo = Math.max(bestCombo, combo);
+      const gained = lines * 100 + (lines - 1) * 60 + (combo - 1) * 25;
+      score += gained;
       rows.forEach((r) => flashes.push({ r, c: -1, t: 18 }));
       cols.forEach((c) => flashes.push({ r: -1, c, t: 18 }));
+      for (const r of rows) for (let c = 0; c < N; c++) parts.burst(GX + c * CELL + CELL / 2, GY + r * CELL + CELL / 2, before[r][c] || '#fff', 3, 4);
+      for (const c of cols) for (let r = 0; r < N; r++) parts.burst(GX + c * CELL + CELL / 2, GY + r * CELL + CELL / 2, before[r][c] || '#fff', 3, 4);
+      const cx = GX + (col + selected_w / 2) * CELL, cy = GY + row * CELL;
+      host.floatText(Math.min(W - 60, Math.max(60, cx)), Math.max(40, cy), `+${gained}`, '#ffd700', 26);
+      if (lines > 1) host.floatText(W / 2, GY + N * CELL / 2, ['', '', 'Doppel!', 'Dreifach!', 'Mega!', 'WAHNSINN!'][Math.min(lines, 5)], '#00e68a', 34);
+      if (combo > 1) host.floatText(W / 2, GY + N * CELL / 2 + 40, `Kombo ×${combo}`, '#ff006e', 24);
+      if (lines > 1) host.shake(4 + lines * 2);
+      if (grid.every((r) => r.every((v) => !v))) { score += 500; host.floatText(W / 2, GY + 60, 'Feld leer! +500', '#00d4ff', 28); }
       host.sound(lines > 1 ? 'win' : 'coin');
     } else {
       combo = 0;
@@ -83,13 +105,21 @@ export function start(host) {
     }
     if (pieces.every((p) => p.used)) newPieces();
     host.setScore(score);
-    if (!pieces.filter((p) => !p.used).some((p) => fitsAnywhere(grid, p.shape))) host.timeout(() => host.end(score), 500);
+    if (!pieces.filter((p) => !p.used).some((p) => fitsAnywhere(grid, p.shape))) {
+      if (timed) {
+        // Zeitjagd: kein Ende, sondern Feld teilweise leeren und neue Teile
+        for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (Math.random() < 0.5) grid[r][c] = null;
+        newPieces();
+        host.floatText(W / 2, GY + N * CELL / 2, 'Feld gemischt!', '#a855f7', 26);
+        host.sound('error');
+      } else host.timeout(() => host.end(score), 500);
+    }
     return true;
   }
 
   host.onPointer('pointerdown', (pt, e) => {
     const p = pieceAt(pt);
-    if (p) { selected = p; dragging = true; hover = null; host.canvas.setPointerCapture?.(e.pointerId); return; }
+    if (p) { selected = p; dragging = true; hover = null; dragOffset = e.pointerType === 'touch' ? -CELL * 1.4 : 0; host.canvas.setPointerCapture?.(e.pointerId); return; }
     if (selected) tryPlace(pt);
   });
   host.onPointer('pointermove', (pt) => { if (selected) hover = pt; });
@@ -100,6 +130,8 @@ export function start(host) {
 
   host.loop(() => {
     for (let i = flashes.length - 1; i >= 0; i--) if (--flashes[i].t <= 0) flashes.splice(i, 1);
+    parts.update(0.15);
+    if (timed && timeLeft > 0 && --timeLeft === 0) { host.sound('win'); host.end(score); }
   }, () => {
     ctx.fillStyle = '#14142b'; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(GX - 6, GY - 6, N * CELL + 12, N * CELL + 12);
@@ -137,6 +169,29 @@ export function start(host) {
       p.shape.forEach((rr, r) => rr.forEach((v, c) => { if (v) block(ox + c * bs, oy + r * bs, bs, p.color); }));
       ctx.globalAlpha = 1;
     });
+    parts.draw(ctx);
+    // gezogenes Teil folgt dem Finger/Mauszeiger
+    if (selected && dragging && hover) {
+      const bs = 34;
+      ctx.globalAlpha = 0.85;
+      selected.shape.forEach((rr, r) => rr.forEach((v, c) => {
+        if (v) block(hover.x - (selected.shape[0].length * bs) / 2 + c * bs, hover.y + dragOffset - (selected.shape.length * bs) / 2 + r * bs, bs, selected.color);
+      }));
+      ctx.globalAlpha = 1;
+    }
+    // Kopfzeile
+    ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.font = 'bold 18px system-ui';
+    ctx.fillText(score, GX, 27);
+    ctx.textAlign = 'right'; ctx.font = 'bold 14px system-ui';
+    ctx.fillStyle = combo > 1 ? '#ff006e' : 'rgba(255,255,255,0.5)';
+    ctx.fillText(combo > 1 ? `Kombo ×${combo}` : `Beste Kombo ${bestCombo}`, W - GX, 27);
+    if (timed) {
+      const frac = timeLeft / TIME_LIMIT;
+      ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fillRect(GX + 90, 16, W - GX * 2 - 230, 10);
+      ctx.fillStyle = frac < 0.2 ? '#ff4d5e' : '#00d4ff'; ctx.fillRect(GX + 90, 16, (W - GX * 2 - 230) * frac, 10);
+      ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.font = 'bold 12px system-ui';
+      ctx.fillText(`${Math.ceil(timeLeft / 60)}s`, GX + 90 + (W - GX * 2 - 230) / 2, 25);
+    }
     ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
     ctx.fillText(selected ? 'Jetzt ins Feld tippen (oder ziehen)' : 'Tippe ein Teil an', W / 2, H - 10);
   });

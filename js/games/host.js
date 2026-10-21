@@ -30,6 +30,10 @@ export class GameHost {
     this.ctx = null;
     this.sound = play;
     this.reduceMotion = !!getSetting('reduceMotion');
+    this.waiting = false;   // Start-Bildschirm aktiv?
+    this._shake = 0;
+    this._floats = [];
+    this.mode = null;       // gewählter Schwierigkeitsgrad (falls das Spiel welche anbietet)
 
     this.on(document, 'keydown', (e) => {
       if (this.destroyed) return;
@@ -41,6 +45,7 @@ export class GameHost {
       const first = !this.keys.has(e.code);
       this.keys.add(e.code);
       if (this.paused) return;
+      if (this.waiting) { if (first && !e.metaKey && !e.ctrlKey && !e.altKey) this._begin(); return; }
       for (const h of this._keyHandlers) h(e, first);
     });
     this.on(document, 'keyup', (e) => this.keys.delete(e.code));
@@ -110,7 +115,7 @@ export class GameHost {
   /** Pointer-Events (Maus + Touch + Stift) auf dem Canvas. */
   onPointer(type, fn) {
     return this.on(this.canvas, type, (e) => {
-      if (this.paused || this.over) return;
+      if (this.paused || this.over || this.waiting) return;
       fn(this.toCanvas(e), e);
     });
   }
@@ -125,7 +130,7 @@ export class GameHost {
       const dx = t.clientX - sx, dy = t.clientY - sy;
       if (Math.hypot(dx, dy) < 24) return;
       active = false;
-      if (!this.paused && !this.over) fn(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+      if (!this.paused && !this.over && !this.waiting) fn(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
       e.preventDefault();
     }, { passive: false });
     this.on(el, 'touchend', () => { active = false; });
@@ -147,6 +152,7 @@ export class GameHost {
       const down = (e) => {
         e.preventDefault();
         if (this.paused || this.over) return;
+        if (this.waiting) { this._begin(); return; }
         const first = !this.keys.has(b.code);
         this.keys.add(b.code);
         const fake = { code: b.code, key: b.key || '', preventDefault() {}, repeat: !first };
@@ -175,7 +181,7 @@ export class GameHost {
       let dt = now - last;
       last = now;
       if (dt > 250) dt = 250; // nach Tab-Wechsel nicht "vorspulen"
-      if (!this.paused && !this.over) {
+      if (!this.paused && !this.over && !this.waiting) {
         acc += dt;
         let steps = 0;
         while (acc >= STEP && steps < 8) {
@@ -187,11 +193,88 @@ export class GameHost {
         if (steps === 8) acc = 0;
       }
       if (this.destroyed) return;
+      const ctx = this.ctx;
+      const shaking = ctx && this._shake > 0.3 && !this.reduceMotion;
+      if (shaking) {
+        ctx.save();
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, this.width, this.height);
+        ctx.translate((Math.random() - 0.5) * this._shake * 2, (Math.random() - 0.5) * this._shake * 2);
+      }
       draw();
+      if (ctx) this._drawFloats(dt);
+      if (shaking) ctx.restore();
+      if (this._shake > 0) this._shake = Math.max(0, this._shake - dt * 0.04);
+      if (this.waiting && !this.paused) this._drawStart();
       if (this.paused && !this.over) this._drawPause();
     };
     this._raf = requestAnimationFrame(frame);
     this._cleanups.push(() => cancelAnimationFrame(this._raf));
+  }
+
+  /** Zeigt "Bereit?" über dem Spiel; die Spielschleife steht, bis eine Taste oder ein Tipp kommt. */
+  requireStart(text = 'Taste drücken oder tippen zum Starten') {
+    this.waiting = true;
+    this._startText = text;
+    if (this.canvas) {
+      const fn = (e) => { if (this.waiting && !this.paused) { e.preventDefault(); e.stopPropagation(); this._begin(); } };
+      this.canvas.addEventListener('pointerdown', fn, { capture: true });
+      this._cleanups.push(() => this.canvas?.removeEventListener('pointerdown', fn, { capture: true }));
+    }
+  }
+  _begin() {
+    if (!this.waiting) return;
+    this.waiting = false;
+    this.keys.clear();
+    this.sound('click');
+    this._onStart?.();
+  }
+  /** Wird aufgerufen, sobald der Start-Bildschirm verlassen wird. */
+  onStart(fn) { this._onStart = fn; }
+
+  _drawStart() {
+    const { ctx, width: w, height: h } = this;
+    if (!ctx) return;
+    const t = performance.now() / 1000;
+    ctx.save();
+    ctx.fillStyle = 'rgba(5,5,20,0.55)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    ctx.font = `900 ${Math.round(Math.min(w, h) / 9)}px system-ui, sans-serif`;
+    ctx.fillText('BEREIT?', w / 2, h / 2 - 8);
+    ctx.globalAlpha = 0.6 + Math.sin(t * 4) * 0.4;
+    ctx.font = `600 ${Math.max(13, Math.round(Math.min(w, h) / 28))}px system-ui, sans-serif`;
+    ctx.fillText(this._startText, w / 2, h / 2 + 30);
+    ctx.restore();
+  }
+
+  /** Bildschirm kurz wackeln lassen (stärke in Pixeln). */
+  shake(strength = 6) { this._shake = Math.max(this._shake, strength); }
+
+  /** Schwebender Text (z. B. "+50") an Canvas-Position x/y. */
+  floatText(x, y, text, color = '#ffd700', size = 22) {
+    this._floats.push({ x, y, text, color, size, life: 1 });
+    if (this._floats.length > 40) this._floats.shift();
+  }
+  _drawFloats(dt) {
+    const ctx = this.ctx;
+    if (!this._floats.length) return;
+    ctx.save();
+    ctx.textAlign = 'center';
+    for (let i = this._floats.length - 1; i >= 0; i--) {
+      const f = this._floats[i];
+      if (!this.paused) { f.life -= dt / 900; f.y -= dt * 0.045; }
+      if (f.life <= 0) { this._floats.splice(i, 1); continue; }
+      ctx.globalAlpha = Math.min(1, f.life * 1.6);
+      ctx.font = `900 ${f.size}px system-ui, sans-serif`;
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.strokeText(f.text, f.x, f.y);
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.restore();
   }
 
   _drawPause() {

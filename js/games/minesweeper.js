@@ -14,8 +14,16 @@ export function createBoard(rows, cols, mines, safeR, safeC, rng = Math.random) 
   return b;
 }
 
-export function start(host) {
-  const ROWS = 12, COLS = 12, MINES = 22;
+export const modes = [
+  { id: 'easy', label: 'Anfänger', desc: '9×9 Felder, 10 Minen' },
+  { id: 'normal', label: 'Fortgeschritten', desc: '12×12 Felder, 22 Minen' },
+  { id: 'hard', label: 'Profi', desc: '16×16 Felder, 40 Minen – Punkte ×1.5' },
+];
+const CFG = { easy: { n: 9, mines: 10, mult: 1 }, normal: { n: 12, mines: 22, mult: 1 }, hard: { n: 16, mines: 40, mult: 1.5 } };
+
+export function start(host, mode = 'normal') {
+  const C = CFG[mode] || CFG.normal;
+  const ROWS = C.n, COLS = C.n, MINES = C.mines;
   let board = null, revealed, flagged, done = false, flagMode = false;
   const t0 = Date.now();
   revealed = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
@@ -43,7 +51,7 @@ export function start(host) {
   host.interval(() => { if (!done) root.querySelector('.ms-time').textContent = `⏱️ ${Math.floor((Date.now() - t0) / 1000)}s`; }, 1000);
 
   const revealedSafe = () => revealed.flat().filter(Boolean).length;
-  const score = () => revealedSafe() * 10;
+  const score = () => Math.round(revealedSafe() * 10 * C.mult);
 
   function flood(r, c) {
     const stack = [[r, c]];
@@ -89,7 +97,7 @@ export function start(host) {
     if (revealedSafe() === ROWS * COLS - MINES) {
       done = true;
       const secs = Math.floor((Date.now() - t0) / 1000);
-      const final = score() + 1000 + Math.max(0, 600 - secs * 3);
+      const final = score() + Math.round((1000 + Math.max(0, 600 - secs * 3)) * C.mult);
       render(); host.sound('win');
       host.timeout(() => host.end(final), 900);
       return;

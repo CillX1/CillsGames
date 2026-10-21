@@ -1,57 +1,89 @@
-// 🦖 Dino Runner
+// 🦖 Dino Runner – Doppelsprung, Münzen, Tag/Nacht, drei Schwierigkeiten.
 import { makeParticles } from './host.js';
 
-export function start(host) {
+export const modes = [
+  { id: 'easy', label: 'Leicht', desc: 'Langsamer Start, mehr Platz zwischen Hindernissen' },
+  { id: 'normal', label: 'Normal', desc: 'Das klassische Tempo' },
+  { id: 'hard', label: 'Schwer', desc: 'Schnell, Flugsaurier von Anfang an – doppelte Münzen' },
+];
+const CFG = {
+  easy: { speed: 5, max: 12, gap: 1.35, birdsAt: 600, coin: 1 },
+  normal: { speed: 6, max: 15, gap: 1, birdsAt: 300, coin: 1 },
+  hard: { speed: 8, max: 18, gap: 0.85, birdsAt: 0, coin: 2 },
+};
+
+export function start(host, mode = 'normal') {
+  const C = CFG[mode] || CFG.normal;
   const W = 800, H = 400, GROUND = 350;
   const { ctx } = host.createCanvas(W, H);
   host.touchControls([{ code: 'ArrowDown', label: '⬇ Ducken', wide: true }, { code: 'Space', label: '⬆ Springen', wide: true }]);
+  host.requireStart('Leertaste / Tippen = springen · zweimal = Doppelsprung');
 
-  const dino = { x: 80, y: GROUND - 70, w: 60, h: 70, vy: 0, jumping: false, ducking: false, frame: 0 };
-  let obstacles = [];
+  const dino = { x: 80, y: GROUND - 70, w: 60, h: 70, vy: 0, jumps: 0, ducking: false, frame: 0 };
+  const obstacles = [], coins = [];
   const clouds = Array.from({ length: 5 }, () => ({ x: Math.random() * W, y: 40 + Math.random() * 90, s: 30 + Math.random() * 30 }));
+  const stars = Array.from({ length: 40 }, () => ({ x: Math.random() * W, y: Math.random() * 220, s: Math.random() * 1.6 + 0.4 }));
   const parts = makeParticles();
-  let speed = 6, nextGap = 60, groundOff = 0, score = 0;
+  let lastMilestone = 0;
+  let speed = C.speed, nextGap = 70, nextCoin = 120, groundOff = 0, dist = 0, bonus = 0, wasAir = false;
+
+  const score = () => Math.floor(dist) + bonus;
 
   function jump() {
-    if (dino.jumping || host.over) return;
-    dino.jumping = true;
+    if (host.over) return;
+    if (dino.jumps >= 2) return;
+    dino.vy = dino.jumps === 0 ? -15 : -12;
+    dino.jumps++;
     dino.ducking = false;
-    dino.vy = -15;
+    if (dino.jumps === 2) parts.burst(dino.x + 30, dino.y + dino.h, '#ffffffaa', 8, 3);
     host.sound('jump');
   }
-
   host.onKey((e, first) => { if (first && ['Space', 'ArrowUp', 'KeyW'].includes(e.code)) jump(); });
   host.onPointer('pointerdown', () => jump());
 
   function spawn() {
-    const birdAllowed = score > 300;
-    const type = birdAllowed && Math.random() < 0.3 ? 'bird' : Math.random() < 0.5 ? 'small' : 'large';
+    const type = score() >= C.birdsAt && Math.random() < 0.3 ? 'bird' : Math.random() < 0.5 ? 'small' : Math.random() < 0.75 ? 'large' : 'double';
     if (type === 'bird') {
-      // Zwei Höhen: hoch (drunter ducken) oder tief (drüber springen)
       const low = Math.random() < 0.5;
       obstacles.push({ type, x: W + 20, y: low ? GROUND - 45 : GROUND - 95, w: 70, h: 30, wing: 0 });
+    } else if (type === 'double') {
+      obstacles.push({ type: 'small', x: W + 20, y: GROUND - 50, w: 35, h: 50 });
+      obstacles.push({ type: 'small', x: W + 58, y: GROUND - 50, w: 35, h: 50 });
     } else {
       const h = type === 'small' ? 50 : 70;
       obstacles.push({ type, x: W + 20, y: GROUND - h, w: type === 'small' ? 35 : 55, h });
     }
-    // Mindestabstand wächst mit der Geschwindigkeit -> immer schaffbar
-    nextGap = Math.floor((380 + Math.random() * 300) / speed + 18);
+    nextGap = Math.floor(((380 + Math.random() * 300) / speed + 18) * C.gap);
+  }
+  function spawnCoins() {
+    const n = 3 + Math.floor(Math.random() * 3);
+    const high = Math.random() < 0.5;
+    for (let i = 0; i < n; i++) {
+      const arc = high ? Math.sin((i / (n - 1)) * Math.PI) * 60 : 0;
+      coins.push({ x: W + 30 + i * 34, y: GROUND - 40 - (high ? 50 : 0) - arc, t: Math.random() * 6 });
+    }
+    nextCoin = 200 + Math.floor(Math.random() * 260);
   }
 
   function hitbox() {
-    if (dino.ducking && !dino.jumping) return { x: dino.x + 6, y: GROUND - 36, w: dino.w + 10, h: 34 };
+    if (dino.ducking && dino.jumps === 0) return { x: dino.x + 6, y: GROUND - 36, w: dino.w + 10, h: 34 };
     return { x: dino.x + 12, y: dino.y + 6, w: dino.w - 24, h: dino.h - 10 };
   }
 
   host.loop(() => {
     dino.frame++;
-    dino.ducking = host.down && !dino.jumping;
-    if (dino.jumping) {
-      dino.vy += host.down ? 1.6 : 0.8; // ↓ in der Luft = schneller landen
+    dino.ducking = host.down && dino.jumps === 0;
+    if (dino.jumps > 0) {
+      dino.vy += host.down ? 1.6 : 0.8;
       dino.y += dino.vy;
-      if (dino.y >= GROUND - dino.h) { dino.y = GROUND - dino.h; dino.jumping = false; dino.vy = 0; }
+      if (dino.y >= GROUND - dino.h) {
+        dino.y = GROUND - dino.h; dino.jumps = 0; dino.vy = 0;
+        if (wasAir) parts.burst(dino.x + 30, GROUND, '#b8a07a', 6, 2.5);
+      }
     }
+    wasAir = dino.jumps > 0;
     if (--nextGap <= 0) spawn();
+    if (--nextCoin <= 0) spawnCoins();
     const hb = hitbox();
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const o = obstacles[i];
@@ -60,27 +92,72 @@ export function start(host) {
       if (o.x + o.w < -20) { obstacles.splice(i, 1); continue; }
       const m = 6;
       if (hb.x < o.x + o.w - m && hb.x + hb.w > o.x + m && hb.y < o.y + o.h - m && hb.y + hb.h > o.y + m) {
-        parts.burst(dino.x + 30, dino.y + 30, '#2d5a2d', 20, 6);
+        parts.burst(dino.x + 30, dino.y + 30, '#2d5a2d', 24, 6);
+        host.shake(10);
         host.sound('hit');
-        host.end(score);
+        host.end(score());
         return;
+      }
+    }
+    for (let i = coins.length - 1; i >= 0; i--) {
+      const c = coins[i];
+      c.x -= speed; c.t += 0.15;
+      if (c.x < -20) { coins.splice(i, 1); continue; }
+      if (c.x > hb.x - 12 && c.x < hb.x + hb.w + 12 && c.y > hb.y - 12 && c.y < hb.y + hb.h + 12) {
+        coins.splice(i, 1);
+        const v = 25 * C.coin;
+        bonus += v;
+        host.floatText(c.x, c.y - 10, '+' + v, '#ffd700', 18);
+        parts.burst(c.x, c.y, '#ffd700', 6, 3);
+        host.sound('coin');
       }
     }
     for (const c of clouds) { c.x -= speed * 0.25; if (c.x < -80) { c.x = W + 40; c.y = 40 + Math.random() * 90; } }
     groundOff = (groundOff + speed) % 40;
     parts.update(0.2);
-    score++;
-    if (score % 100 === 0) host.sound('point');
-    if (score % 400 === 0) speed = Math.min(16, speed + 0.6);
-    host.setScore(score);
+    dist += speed / 6;
+    const s = score();
+    const milestone = Math.floor(dist / 500);
+    if (milestone > lastMilestone) {
+      lastMilestone = milestone;
+      host.sound('point');
+      host.floatText(W - 70, 64, `${milestone * 500}!`, '#fff', 20);
+    }
+    speed = Math.min(C.max, C.speed + dist / 900);
+    host.setScore(s);
   }, draw);
 
+  // 0 = Tag, 1 = Nacht (wechselt alle 1200 Distanz, sanft überblendet)
+  function nightAmount() {
+    const phase = (dist % 2400) / 2400;
+    if (phase < 0.42) return 0;
+    if (phase < 0.5) return (phase - 0.42) / 0.08;
+    if (phase < 0.92) return 1;
+    return 1 - (phase - 0.92) / 0.08;
+  }
+  const mix = (a, b, t) => `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',')})`;
+
   function draw() {
+    const n = nightAmount();
     const sky = ctx.createLinearGradient(0, 0, 0, GROUND);
-    sky.addColorStop(0, '#87CEEB'); sky.addColorStop(0.7, '#B0E0E6'); sky.addColorStop(1, '#90EE90');
+    sky.addColorStop(0, mix([135, 206, 235], [12, 16, 48], n));
+    sky.addColorStop(0.7, mix([176, 224, 230], [30, 40, 90], n));
+    sky.addColorStop(1, mix([144, 238, 144], [40, 70, 70], n));
     ctx.fillStyle = sky; ctx.fillRect(0, 0, W, GROUND);
-    ctx.fillStyle = '#FFD700'; ctx.beginPath(); ctx.arc(700, 60, 38, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#fff';
+    if (n > 0) {
+      ctx.fillStyle = `rgba(255,255,255,${n * 0.8})`;
+      for (const s of stars) ctx.fillRect(s.x, s.y, s.s, s.s);
+      ctx.fillStyle = `rgba(245,245,220,${n})`;
+      ctx.beginPath(); ctx.arc(700, 70, 30, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = mix([135, 206, 235], [12, 16, 48], n);
+      ctx.beginPath(); ctx.arc(714, 62, 26, 0, Math.PI * 2); ctx.fill();
+    }
+    if (n < 1) {
+      ctx.globalAlpha = 1 - n;
+      ctx.fillStyle = '#FFD700'; ctx.beginPath(); ctx.arc(700, 60, 38, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = `rgba(255,255,255,${0.95 - n * 0.6})`;
     for (const c of clouds) {
       ctx.beginPath();
       ctx.arc(c.x, c.y, c.s * 0.5, 0, Math.PI * 2);
@@ -88,25 +165,30 @@ export function start(host) {
       ctx.arc(c.x + c.s * 0.8, c.y, c.s * 0.45, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.fillStyle = '#6B8E6B';
+    ctx.fillStyle = mix([107, 142, 107], [40, 55, 60], n);
     ctx.beginPath(); ctx.moveTo(0, GROUND);
     [[100, 250], [200, 320], [300, 220], [450, 300], [550, 230], [700, 280], [800, 200], [800, GROUND]].forEach(([x, y]) => ctx.lineTo(x, y));
     ctx.fill();
     const gg = ctx.createLinearGradient(0, GROUND, 0, H);
-    gg.addColorStop(0, '#8B7355'); gg.addColorStop(1, '#6B5344');
+    gg.addColorStop(0, mix([139, 115, 85], [70, 60, 50], n)); gg.addColorStop(1, mix([107, 83, 68], [50, 40, 35], n));
     ctx.fillStyle = gg; ctx.fillRect(0, GROUND, W, H - GROUND);
-    ctx.fillStyle = '#5a4a3a';
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
     for (let x = -groundOff; x < W; x += 40) ctx.fillRect(x, GROUND + 12, 14, 3);
     ctx.fillRect(0, GROUND, W, 3);
 
+    for (const c of coins) {
+      const sx = Math.abs(Math.cos(c.t)) * 9 + 2;
+      ctx.fillStyle = '#ffd700'; ctx.beginPath(); ctx.ellipse(c.x, c.y, sx, 11, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 2; ctx.stroke();
+    }
     for (const o of obstacles) (o.type === 'bird' ? drawBird : drawCactus)(o);
     drawDino();
     parts.draw(ctx);
 
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillStyle = n > 0.5 ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.7)';
     ctx.font = 'bold 22px ui-monospace, monospace';
     ctx.textAlign = 'right';
-    ctx.fillText(String(score).padStart(5, '0'), W - 20, 34);
+    ctx.fillText(String(score()).padStart(5, '0'), W - 20, 34);
   }
 
   function drawDino() {
@@ -114,6 +196,8 @@ export function start(host) {
     const h = ducking ? 40 : dino.h;
     const y = ducking ? GROUND - 40 : dino.y;
     const x = dino.x;
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath(); ctx.ellipse(x + 30, GROUND + 3, 26 * (1 - Math.min(0.6, (GROUND - (y + h)) / 200)), 5, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#2d5a2d';
     ctx.beginPath(); ctx.ellipse(x + 25 + (ducking ? 8 : 0), y + h - 25, ducking ? 32 : 25, ducking ? 16 : 20, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#3d7a3d';
@@ -122,7 +206,7 @@ export function start(host) {
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx + 7, hy - 5, 5, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(hx + 9, hy - 5, 2.5, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#2d5a2d';
-    const legOff = !dino.jumping ? Math.sin(dino.frame * 0.35) * 7 : 0;
+    const legOff = dino.jumps === 0 ? Math.sin(dino.frame * 0.35) * 7 : 0;
     ctx.fillRect(x + 15, y + h - 10, 8, 12 + legOff);
     ctx.fillRect(x + 35, y + h - 10, 8, 12 - legOff);
     ctx.fillStyle = '#3d7a3d';

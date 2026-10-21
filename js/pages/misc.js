@@ -97,7 +97,7 @@ export function renderInfo(view) {
         <li>🛒 Im <b>Shop</b> gibt es Abzeichen, Titel, Namensfarben und Rahmen für dein Profil.</li>
         <li>⌨️ In allen Action-Spielen pausiert <kbd>P</kbd> das Spiel. Auf dem Handy erscheinen Bildschirm-Tasten.</li>
       </ul>
-      <p class="muted small">Version 3.0 · engineered by Cillian Fontannaz · Quellcode auf <a href="https://github.com/CillX1/CillsGames" target="_blank" rel="noopener">GitHub</a></p>
+      <p class="muted small">Version 3.1 · engineered by Cillian Fontannaz · Quellcode auf <a href="https://github.com/CillX1/CillsGames" target="_blank" rel="noopener">GitHub</a></p>
     </div>
     <h2 class="page-title small">📬 Kontakt</h2>
     <div class="card prose">

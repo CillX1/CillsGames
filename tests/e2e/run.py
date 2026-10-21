@@ -108,6 +108,13 @@ def play_canvas(page, keys, secs=3.0, clicks=False):
             page.mouse.click(box['x'] + random.random() * box['width'], box['y'] + random.random() * box['height'])
         page.wait_for_timeout(40)
 
+def choose_mode(page, which=0):
+    page.wait_for_timeout(250)
+    btns = page.locator('.mode-btn')
+    if btns.count():
+        btns.nth(min(which, btns.count() - 1)).click()
+        page.wait_for_timeout(200)
+
 def play_game(page, gid):
     if gid in ('dino', 'flappy'):
         play_canvas(page, ['Space', 'ArrowUp', 'ArrowDown'], clicks=True)
@@ -118,14 +125,19 @@ def play_game(page, gid):
     elif gid in ('blockblast', 'bubbleshooter', 'towerdefense'):
         play_canvas(page, ['Space', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'ArrowLeft'], secs=3.5, clicks=True)
     elif gid == 'wordle':
-        for word in ['APFEL', 'NEBEL', 'XX']:
+        page.keyboard.type('XX'); page.keyboard.press('Enter'); page.wait_for_timeout(150)
+        page.locator('.wl-key[data-k="⌫"]').click(); page.locator('.wl-key[data-k="⌫"]').click()
+        for word in ['APFEL', 'NEBEL', 'STERN', 'KATZE', 'BLUME', 'HAFEN']:
+            if page.locator('.wl-result').count(): break
             page.keyboard.type(word); page.keyboard.press('Enter'); page.wait_for_timeout(250)
-        page.locator('.wl-key[data-k="⌫"]').click(); page.locator('.wl-key[data-k=Q]').click()
+        page.locator('.wl-result').wait_for(timeout=4000)
+        assert page.locator('.wl-stats').count() == 1
+        page.locator('.wl-result [data-next]').click()
     elif gid == 'tictactoe':
-        for _ in range(5):
+        for _ in range(14):
             cells = page.locator('.ttt-cell:not([disabled])')
             if cells.count() == 0: break
-            cells.nth(random.randrange(cells.count())).click(); page.wait_for_timeout(600)
+            cells.nth(random.randrange(cells.count())).click(); page.wait_for_timeout(700)
     elif gid == 'connect4':
         for _ in range(6):
             cols = page.locator('.c4-col:not([disabled])')
@@ -150,9 +162,11 @@ def play_game(page, gid):
             page.locator('.typ-input').type(w, delay=15); page.wait_for_timeout(120)
         page.locator('.typ-input').type('qq')
     elif gid == 'quiz':
+        page.locator('[data-joker=half]').click(); assert page.locator('.quiz-a.gone').count() == 2
+        page.locator('[data-joker=time]').click()
         for _ in range(3):
             page.locator('.quiz-a').first.wait_for()
-            page.locator('.quiz-a').nth(random.randrange(4)).click(); page.wait_for_timeout(1550)
+            page.locator('.quiz-a:not(.gone)').first.click(); page.wait_for_timeout(1750)
         page.keyboard.press('Digit2'); page.wait_for_timeout(300)
 
 def finish_round(page, gid, retry=False):
@@ -207,6 +221,7 @@ with sync_playwright() as p:
     print('▶ Gast spielt')
     page.goto(BASE + '?backend=local#/spiel/snake')
     page.wait_for_selector('.guest-note')
+    choose_mode(page)
     play_canvas(page, ['ArrowUp', 'ArrowLeft'], secs=1)
     finish_round(page, 'snake')
     assert header_points(page) == '0'
@@ -236,6 +251,7 @@ with sync_playwright() as p:
     for i, gid in enumerate(FREE):
         page.goto(BASE + f'?backend=local#/spiel/{gid}')
         page.wait_for_selector('[data-stage] > *')
+        choose_mode(page, i % 3)
         page.wait_for_timeout(300)
         play_game(page, gid)
         page.screenshot(path=str(SHOTS / f'game-{gid}.png'))
@@ -282,6 +298,7 @@ with sync_playwright() as p:
     for i, gid in enumerate(LOCKED):
         page.goto(BASE + f'?backend=local#/spiel/{gid}')
         page.wait_for_selector('[data-stage] > *')
+        choose_mode(page, i % 3)
         page.wait_for_timeout(300)
         play_game(page, gid)
         page.screenshot(path=str(SHOTS / f'game-{gid}.png'))
@@ -368,10 +385,11 @@ with sync_playwright() as p:
     w = mp.evaluate('document.documentElement.scrollWidth')
     assert w <= 390, f'Seite breiter als Handy: {w}px'
     mp.screenshot(path=str(SHOTS / 'mobile-home.png'))
-    mp.goto(BASE + '?backend=local#/spiel/snake'); mp.wait_for_selector('.touch-controls')
+    mp.goto(BASE + '?backend=local#/spiel/snake'); mp.wait_for_selector('.mode-btn'); mp.locator('.mode-btn').first.tap(); mp.wait_for_selector('.touch-controls')
+    mp.locator('.touch-btn').nth(1).tap(); mp.wait_for_timeout(200)
     mp.locator('.touch-btn').nth(1).tap(); mp.wait_for_timeout(400)
     mp.screenshot(path=str(SHOTS / 'mobile-snake.png'))
-    mp.goto(BASE + '?backend=local#/spiel/wordle'); mp.wait_for_selector('.wl-key')
+    mp.goto(BASE + '?backend=local#/spiel/wordle'); mp.wait_for_selector('.mode-btn'); mp.locator('.mode-btn').nth(1).tap(); mp.wait_for_selector('.wl-key')
     mp.screenshot(path=str(SHOTS / 'mobile-wordle.png'))
     assert mp.evaluate('document.documentElement.scrollWidth') <= 390
     step('Keine horizontale Scrollleiste, Touch-Tasten vorhanden')

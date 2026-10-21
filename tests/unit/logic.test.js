@@ -270,13 +270,16 @@ test('Pac-Man: Labyrinth ist rechteckig und alle Punkte sind erreichbar', () => 
 });
 
 // ── Quiz, Typing, Memory ──
-test('Quiz: 4 eindeutige Antworten pro Frage, keine Duplikate', () => {
-  assert.ok(QUESTIONS.length >= 30);
-  assert.equal(new Set(QUESTIONS.map((q) => q[0])).size, QUESTIONS.length);
+test('Quiz: Kategorien, 4 eindeutige Antworten, keine doppelten Fragen', async () => {
+  const { modes, questionsFor, ROUND_LENGTH } = await import('../../js/games/quiz.js');
+  assert.ok(QUESTIONS.length >= 100);
+  assert.equal(new Set(QUESTIONS.map((q) => q[1])).size, QUESTIONS.length);
   for (const q of QUESTIONS) {
-    assert.equal(q.length, 5, q[0]);
-    assert.equal(new Set(q.slice(1)).size, 4, q[0]);
+    assert.equal(q.length, 6, q[1]);
+    assert.ok(['ch', 'natur', 'welt', 'mix'].includes(q[0]), q[1]);
+    assert.equal(new Set(q.slice(2)).size, 4, q[1]);
   }
+  for (const m of modes) assert.ok(questionsFor(m.id).length >= ROUND_LENGTH, m.id);
 });
 test('Typing: Wörter vorhanden', () => assert.ok(TYPING_WORDS.length > 40 && TYPING_WORDS.every((w) => /^\S+$/.test(w))));
 test('Memory-Score: weniger Züge = mehr Punkte', () => {
@@ -294,4 +297,61 @@ test('Admin-Passwort-Fingerabdruck: Format und Verfahren', async () => {
   // Vergleich mit Node's eigener PBKDF2-Umsetzung (gleiche Parameter wie im Browser)
   const { pbkdf2Sync } = await import('node:crypto');
   assert.equal(a, pbkdf2Sync('test-passwort', 'cillsgames-admin-v1', 200000, 32, 'sha256').toString('hex'));
+});
+
+// ── v3.1: Modi und neue Spiel-Logik ──
+test('Jedes Spiel mit Modi: eindeutige IDs, Label und Beschreibung', async () => {
+  for (const id of GAME_IDS) {
+    const mod = await import(`../../js/games/${id}.js`);
+    assert.equal(typeof mod.start, 'function', id);
+    if (!mod.modes) continue;
+    assert.ok(mod.modes.length >= 2, id);
+    assert.equal(new Set(mod.modes.map((m) => m.id)).size, mod.modes.length, id);
+    for (const m of mod.modes) assert.ok(m.label && m.desc, `${id}/${m.id}`);
+  }
+});
+test('Wordle: Tageswort ist stabil und aus der Liste', async () => {
+  const { dailyWord } = await import('../../js/games/wordle.js');
+  assert.equal(dailyWord('2026-10-21'), dailyWord('2026-10-21'));
+  const days = new Set(Array.from({ length: 30 }, (_, i) => dailyWord(`2026-11-${String(i + 1).padStart(2, '0')}`)));
+  assert.ok(days.size > 20, 'Tageswörter wiederholen sich zu oft');
+  for (const w of days) assert.ok(WORDS.includes(w));
+});
+test('Tower Defense: Upgrade-Kosten, Werte, Verkaufswert', async () => {
+  const { TOWERS, upgradeCost, towerStats, sellValue, MAX_LEVEL } = await import('../../js/games/towerdefense.js');
+  assert.equal(MAX_LEVEL, 3);
+  for (let t = 0; t < TOWERS.length; t++) {
+    assert.ok(upgradeCost(t, 2) > upgradeCost(t, 1));
+    assert.ok(towerStats(t, 3).dmg > towerStats(t, 1).dmg);
+    assert.ok(towerStats(t, 3).range > towerStats(t, 1).range);
+    assert.equal(sellValue(t, 1), Math.floor(TOWERS[t].cost * 0.6));
+    assert.ok(sellValue(t, 3) < TOWERS[t].cost + upgradeCost(t, 1) + upgradeCost(t, 2));
+  }
+});
+test('Breakout: Level-Muster sind 10 breit und schaffbar', async () => {
+  const { LEVELS } = await import('../../js/games/breakout.js');
+  assert.ok(LEVELS.length >= 5);
+  for (const lv of LEVELS) {
+    for (const row of lv) assert.match(row, /^[.123MX]{10}$/);
+    assert.ok(lv.join('').replace(/[.M]/g, '').length > 0, 'jedes Level braucht zerstörbare Steine');
+  }
+});
+test('Typing: Wortpool wächst mit dem Level', async () => {
+  const { poolFor } = await import('../../js/games/typing.js');
+  assert.ok(poolFor(1, 'normal').length < poolFor(6, 'normal').length);
+  assert.ok(poolFor(1, 'normal').every((w) => w.length <= 7));
+  assert.ok(poolFor(1, 'hard').length >= 8);
+});
+test('Memory: Themen ohne doppelte oder verwechselbare Symbole', async () => {
+  const { THEMES } = await import('../../js/games/memory.js');
+  for (const [name, list] of Object.entries(THEMES)) {
+    assert.ok(list.length >= 18, name);
+    assert.equal(new Set(list.map((e) => e.replace(/️/g, ''))).size, list.length, name);
+  }
+  assert.ok(memoryScore(18, 60, 18) > memoryScore(12, 60, 12));
+});
+test('Tic Tac Toe: Serie über 3 Partien', async () => {
+  const { GAMES_PER_SERIES } = await import('../../js/games/tictactoe.js');
+  assert.equal(GAMES_PER_SERIES, 3);
+  assert.ok(pointsForScore('tictactoe', 3 * 100 * 2) <= GAME_BY_ID.tictactoe.cap);
 });

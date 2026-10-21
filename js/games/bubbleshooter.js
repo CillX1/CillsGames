@@ -42,7 +42,16 @@ export function findFloating(grid, odd) {
   return out;
 }
 
-export function start(host) {
+export const modes = [
+  { id: 'easy', label: 'Leicht', desc: 'Weniger Farben, Decke rückt langsamer nach' },
+  { id: 'normal', label: 'Normal', desc: 'Ausgeglichen' },
+  { id: 'hard', label: 'Schwer', desc: 'Mehr Farben, Decke rückt schnell nach – Punkte ×1.5' },
+];
+const CFG = { easy: { colors: 2, drop: 9, mult: 1 }, normal: { colors: 3, drop: 6, mult: 1 }, hard: { colors: 4, drop: 5, mult: 1.5 } };
+const BOMB = 'BOMB';
+
+export function start(host, mode = 'normal') {
+  const C = CFG[mode] || CFG.normal;
   const W = COLS * 2 * R + R, H = 620, SHOOT_Y = H - 50;
   const { ctx } = host.createCanvas(W, H);
   host.touchControls([{ code: 'ArrowLeft', label: '⟲' }, { code: 'Space', label: '● Schuss', wide: true }, { code: 'ArrowRight', label: '⟳' }]);
@@ -58,7 +67,7 @@ export function start(host) {
 
   function newBoard() {
     level++;
-    numColors = Math.min(PALETTE.length, 3 + level);
+    numColors = Math.min(PALETTE.length, C.colors + level);
     grid = Array.from({ length: ROWS }, (_, r) => Array.from({ length: COLS }, (_, c) => {
       if (r >= 5) return null;
       if (odd(r) && c === COLS - 1) return null; // eingerückte Reihe: letzte Kugel würde rausragen
@@ -87,13 +96,19 @@ export function start(host) {
     if (bullet || host.over) return;
     bullet = { x: W / 2, y: SHOOT_Y, vx: Math.cos(shooter.angle) * 11, vy: Math.sin(shooter.angle) * 11, color: shooter.color };
     shooter.color = shooter.next;
-    shooter.next = pickColor();
+    shooter.next = (shots + 2) % 15 === 0 ? BOMB : pickColor();
     host.sound('shoot');
   }
+  function swap() {
+    if (bullet || host.over) return;
+    [shooter.color, shooter.next] = [shooter.next, shooter.color];
+    host.sound('click');
+  }
+  const inSwapArea = (p) => p.x < 80 && p.y > H - 60;
   host.onPointer('pointermove', aimAt);
   host.onPointer('pointerdown', aimAt);
-  host.onPointer('pointerup', (p) => { aimAt(p); shoot(); });
-  host.onKey((e, first) => { if (first && e.code === 'Space') shoot(); });
+  host.onPointer('pointerup', (p) => { if (inSwapArea(p)) { swap(); return; } aimAt(p); shoot(); });
+  host.onKey((e, first) => { if (first && e.code === 'Space') shoot(); if (first && (e.code === 'KeyX' || e.code === 'ArrowDown')) swap(); });
 
   function inBounds(r, c) { return r >= 0 && r < ROWS && c >= 0 && c < COLS && !(odd(r) && c === COLS - 1); }
 
@@ -113,27 +128,51 @@ export function start(host) {
     const [r, c] = best;
     grid[r][c] = color;
     shots++;
+    if (color === BOMB) {
+      grid[r][c] = null;
+      let n = 0;
+      for (let rr = 0; rr < ROWS; rr++) for (let cc = 0; cc < COLS; cc++) {
+        if (grid[rr][cc] && Math.hypot(cx(rr, cc) - cx(r, c), cy(rr) - cy(r)) < R * 4.3) { parts.burst(cx(rr, cc), cy(rr), grid[rr][cc], 5, 5); grid[rr][cc] = null; n++; }
+      }
+      const floating = findFloating(grid, odd);
+      for (const [rr, cc] of floating) { falling.push({ x: cx(rr, cc), y: cy(rr), vy: 0, color: grid[rr][cc] }); grid[rr][cc] = null; }
+      const gained = Math.round((n * 15 + floating.length * 20) * C.mult);
+      score += gained;
+      parts.burst(cx(r, c), cy(r), '#ffaa00', 30, 7);
+      host.floatText(cx(r, c), cy(r), `BUMM! +${gained}`, '#ffaa00', 24);
+      host.shake(10);
+      host.sound('hit');
+      afterShot();
+      return;
+    }
     const cluster = findCluster(grid, r, c, odd);
     if (cluster.length >= 3) {
       combo++;
       for (const [rr, cc] of cluster) { parts.burst(cx(rr, cc), cy(rr), grid[rr][cc], 6, 4); grid[rr][cc] = null; }
       const floating = findFloating(grid, odd);
       for (const [rr, cc] of floating) { falling.push({ x: cx(rr, cc), y: cy(rr), vy: 0, color: grid[rr][cc] }); grid[rr][cc] = null; }
-      score += cluster.length * 10 * Math.min(5, combo) + floating.length * 20;
+      const gained = Math.round((cluster.length * 10 * Math.min(5, combo) + floating.length * 20) * C.mult);
+      score += gained;
+      host.floatText(cx(r, c), cy(r), `+${gained}${combo > 1 ? ` ×${Math.min(5, combo)}` : ''}`, '#ffd700', 20);
+      if (floating.length >= 5) { host.floatText(W / 2, H / 2, 'Lawine!', '#00e68a', 30); host.shake(5); }
       host.sound(floating.length ? 'win' : 'pop');
     } else {
       combo = 0;
       host.sound('click');
-      if (shots % 6 === 0) dropCeiling();
+      if (shots % C.drop === 0) dropCeiling();
     }
+    afterShot();
+  }
+  function afterShot() {
     if (!colorsOnBoard().length) {
       score += 1000 * level;
+      host.floatText(W / 2, H / 2, `Feld geräumt! +${1000 * level}`, '#00d4ff', 26);
       host.sound('win');
       shift = 0;
       newBoard();
     }
-    if (!colorsOnBoard().includes(shooter.color)) shooter.color = pickColor();
-    if (!colorsOnBoard().includes(shooter.next)) shooter.next = pickColor();
+    if (shooter.color !== BOMB && !colorsOnBoard().includes(shooter.color)) shooter.color = pickColor();
+    if (shooter.next !== BOMB && !colorsOnBoard().includes(shooter.next)) shooter.next = pickColor();
     host.setScore(score);
     checkLose();
   }
@@ -184,14 +223,21 @@ export function start(host) {
     if (bullet) ball(bullet.x, bullet.y, bullet.color);
     parts.draw(ctx);
     ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = '12px system-ui'; ctx.textAlign = 'left';
-    ctx.fillText('Nächste', 12, H - 30);
+    ctx.fillText('Nächste (X)', 8, H - 34);
     ball(36, H - 14, shooter.next, 0.6);
     ctx.textAlign = 'right';
-    ctx.fillText(`Decke rückt in ${6 - (shots % 6)}`, W - 10, H - 14);
+    ctx.fillText(`Decke rückt in ${C.drop - (shots % C.drop)} · Bombe in ${15 - (shots % 15)}`, W - 10, H - 14);
   });
 
   function ball(x, y, color, scale = 1) {
     const r = (R - 1) * scale;
+    if (color === BOMB) {
+      ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#ffaa00'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.font = `${Math.round(r * 1.2)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('💣', x, y + 1); ctx.textBaseline = 'alphabetic';
+      return;
+    }
     const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.35, 1, x, y, r);
     g.addColorStop(0, '#ffffff'); g.addColorStop(0.25, color); g.addColorStop(1, color);
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();

@@ -77,6 +77,9 @@ export function render(view, id) {
   let host = null;
   let endDialog = null;
   let disposed = false;
+  let mode = null; // gewählter Schwierigkeitsgrad dieser Sitzung
+  let modes = null;
+  const MODE_KEY = 'cg_mode_' + id;
 
   async function begin() {
     host?.destroy();
@@ -93,7 +96,14 @@ export function render(view, id) {
     try {
       const mod = await loaders[id]();
       if (disposed || host.destroyed) return;
-      mod.start(host);
+      modes = mod.modes || null;
+      if (modes && !mode) {
+        pauseBtn.hidden = true;
+        mode = await pickMode(modes);
+        if (!mode || disposed || host.destroyed) return;
+      }
+      host.mode = mode;
+      mod.start(host, mode);
       pauseBtn.hidden = !host._loop;
       (host.canvas || stage.querySelector('input') || stage).focus?.({ preventScroll: true });
     } catch (e) {
@@ -101,6 +111,31 @@ export function render(view, id) {
       stage.innerHTML = '<p class="empty">Das Spiel konnte nicht geladen werden. Lade die Seite neu.</p>';
     }
   }
+  /** Schwierigkeitsauswahl im Spielbereich. Gibt die gewählte Modus-ID zurück. */
+  function pickMode(list) {
+    let last = null;
+    try { last = localStorage.getItem(MODE_KEY); } catch { /* egal */ }
+    const g = GAME_BY_ID[id];
+    const box = document.createElement('div');
+    box.className = 'mode-picker';
+    box.innerHTML = `<div class="mode-emoji">${g.emoji}</div><h2>Schwierigkeit wählen</h2>
+      <div class="mode-list">${list.map((m) => `<button type="button" class="mode-btn ${m.id === last ? 'last' : ''}" data-mode="${esc(m.id)}">
+        <b>${esc(m.label)}</b><span>${esc(m.desc || '')}</span>${m.id === last ? '<small>zuletzt gespielt</small>' : ''}</button>`).join('')}</div>`;
+    stage.appendChild(box);
+    (box.querySelector('.mode-btn.last') || box.querySelector('.mode-btn')).focus({ preventScroll: true });
+    return new Promise((resolve) => {
+      box.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-mode]');
+        if (!b) return;
+        try { localStorage.setItem(MODE_KEY, b.dataset.mode); } catch { /* egal */ }
+        box.remove();
+        resolve(b.dataset.mode);
+      });
+      host.onCleanup(() => resolve(null));
+    });
+  }
+  const modeLabel = () => modes?.find((m) => m.id === mode)?.label || '';
+
   function onPause(e) { pauseBtn.textContent = e.detail ? '▶ Weiter' : 'Pause'; }
 
   function finished(score) {
@@ -117,17 +152,22 @@ export function render(view, id) {
           <div class="game-over">
             <div class="go-score">${formatInt(score)}</div>
             <div class="go-label">Score</div>
+            ${modes ? `<div class="go-mode">${esc(modeLabel())}</div>` : ''}
             ${res.newRecord ? '<div class="go-record">🏆 Neuer Rekord!</div>' : ''}
             <div class="go-points">${loggedIn ? `+${res.points} 🎯 Punkte` : `Als Gast: ${res.points} 🎯 (nicht gespeichert)`}</div>
             ${unlockedHtml}
             <div class="dialog-actions">
               <button type="button" class="btn btn-ghost" data-go="menu">🏠 Menü</button>
+              ${modes ? '<button type="button" class="btn btn-ghost" data-go="mode">⚙️ Schwierigkeit</button>' : ''}
               <button type="button" class="btn btn-primary" data-go="retry">🔄 Nochmal</button>
             </div>
           </div>`,
         onOpen(root, close) {
           root.querySelector('[data-go=retry]').onclick = () => { close('retry'); };
           root.querySelector('[data-go=menu]').onclick = () => { close('menu'); };
+          const mb = root.querySelector('[data-go=mode]');
+          if (mb) mb.onclick = () => { mode = null; close('retry'); };
+          if (res.newRecord && score > 0) confetti();
         },
       });
       endDialog.done.then((v) => {
@@ -143,7 +183,7 @@ export function render(view, id) {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'help') { host?.pause(); showHowTo(id); }
     if (act === 'pause') host?.togglePause();
-    if (act === 'finish' && host && !host.over) host.end(host.score);
+    if (act === 'finish' && host && !host.over && !stage.querySelector('.mode-picker')) host.end(host.score);
     if (act === 'back') navigate('/');
   });
   view.querySelector('[data-act=login]')?.addEventListener('click', () => { host?.pause(); openAuthDialog('login'); });
@@ -154,4 +194,24 @@ export function render(view, id) {
     endDialog?.close();
     host?.destroy();
   };
+}
+
+/** Kleines Konfetti-Feuerwerk bei einem neuen Rekord (ohne Bibliothek). */
+function confetti() {
+  try { if (document.documentElement.classList.contains('reduce-motion') || matchMedia('(prefers-reduced-motion: reduce)').matches) return; } catch { /* egal */ }
+  const layer = document.createElement('div');
+  layer.className = 'confetti';
+  const colors = ['#00d4ff', '#ff006e', '#ffd700', '#00e68a', '#a855f7', '#ff8800'];
+  for (let i = 0; i < 90; i++) {
+    const p = document.createElement('i');
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.background = colors[i % colors.length];
+    p.style.animationDelay = Math.random() * 0.6 + 's';
+    p.style.animationDuration = 1.8 + Math.random() * 1.4 + 's';
+    p.style.setProperty('--drift', (Math.random() - 0.5) * 240 + 'px');
+    p.style.setProperty('--spin', (Math.random() * 1080 - 540) + 'deg');
+    layer.appendChild(p);
+  }
+  document.body.appendChild(layer);
+  setTimeout(() => layer.remove(), 3800);
 }
