@@ -10,7 +10,18 @@ Benutzung:
 Optionen (Umgebungsvariablen):
   CHROME=/pfad/zu/chrome  SHOTS=/ordner  HEADED=1
 """
-import os, re, subprocess, sys, time, random, socket
+import os, re, subprocess, sys, time, random, socket, traceback
+
+def _gh_error(msg):
+    # In GitHub Actions als sichtbare Fehlermeldung (Annotation) ausgeben
+    if os.environ.get('GITHUB_ACTIONS'):
+        print('::error title=Browser-Test::' + msg.replace('%', '%25').replace('\r', '').replace('\n', '%0A')[:4000], flush=True)
+
+def _hook(t, v, tb):
+    _gh_error(''.join(traceback.format_exception(t, v, tb))[-3500:] + '\nLetzter Schritt: ' + str(globals().get('LAST_STEP')))
+    sys.__excepthook__(t, v, tb)
+sys.excepthook = _hook
+LAST_STEP = None
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 
@@ -42,8 +53,9 @@ errors = []
 step_count = 0
 
 def step(msg):
-    global step_count
+    global step_count, LAST_STEP
     step_count += 1
+    LAST_STEP = msg
     print(f'  ✓ {msg}', flush=True)
 
 def watch(page, allow=()):
@@ -55,6 +67,7 @@ def watch(page, allow=()):
 
 def check_errors(where):
     if errors:
+        _gh_error(f'JavaScript-Fehler bei {where}:\n' + '\n'.join(errors))
         print(f'\n✗ JavaScript-Fehler bei: {where}')
         for e in errors: print('   ', e)
         raise SystemExit(1)
